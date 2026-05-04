@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(spectra analyze *)",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}
