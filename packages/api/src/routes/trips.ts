@@ -8,7 +8,7 @@ router.use(requireAuth);
 
 // POST /trips — create a trip
 router.post('/', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { name, destination, start_date, end_date } = req.body as {
     name: string; destination: string; start_date: string; end_date: string;
   };
@@ -49,7 +49,7 @@ router.post('/', async (req, res: Response) => {
 
 // GET /trips — list trips for authenticated user
 router.get('/', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { rows } = await pool.query(
     `SELECT t.id, t.name, t.destination, t.start_date, t.end_date, t.owner_id, t.created_at, t.updated_at
      FROM trips t
@@ -63,7 +63,7 @@ router.get('/', async (req, res: Response) => {
 
 // DELETE /trips/:id — delete trip (owner only)
 router.delete('/:id', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { id } = req.params;
   const { rowCount } = await pool.query(
     `DELETE FROM trips WHERE id = $1 AND owner_id = $2`,
@@ -78,7 +78,7 @@ router.delete('/:id', async (req, res: Response) => {
 
 // POST /trips/:id/invitations — invite collaborator by email
 router.post('/:id/invitations', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { id: tripId } = req.params;
   const { email } = req.body as { email: string };
 
@@ -118,7 +118,7 @@ router.post('/:id/invitations', async (req, res: Response) => {
 
 // POST /invitations/:token/accept
 router.post('/invitations/:token/accept', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { token } = req.params;
 
   const { rows } = await pool.query<{ id: string; trip_id: string; email: string; accepted_at: string | null }>(
@@ -159,7 +159,7 @@ router.post('/invitations/:token/accept', async (req, res: Response) => {
 
 // DELETE /trips/:id/members/:userId — owner removes collaborator
 router.delete('/:id/members/:userId', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { id: tripId, userId: targetUserId } = req.params;
 
   const ownerCheck = await pool.query(
@@ -188,7 +188,7 @@ router.delete('/:id/members/:userId', async (req, res: Response) => {
 
 // GET /trips/:id/members — list all trip members
 router.get('/:id/members', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { id: tripId } = req.params;
 
   const memberCheck = await pool.query(
