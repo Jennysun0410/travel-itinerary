@@ -7,7 +7,7 @@ router.use(requireAuth);
 
 // GET /orders/unassigned — list unassigned orders for the user
 router.get('/unassigned', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { rows } = await pool.query(
     `SELECT o.*, u.display_name AS created_by_name
      FROM orders o
@@ -21,7 +21,7 @@ router.get('/unassigned', async (req, res: Response) => {
 
 // PATCH /orders/unassigned/:id/assign — assign unassigned order to a trip
 router.patch('/unassigned/:id/assign', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { id } = req.params;
   const { trip_id } = req.body as { trip_id: string };
 
@@ -54,7 +54,7 @@ router.patch('/unassigned/:id/assign', async (req, res: Response) => {
 
 // GET /trips/:tripId/orders — list orders for a trip with optional type filter
 router.get('/trips/:tripId/orders', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { tripId } = req.params;
   const { type } = req.query as { type?: string };
 
@@ -87,7 +87,7 @@ router.get('/trips/:tripId/orders', async (req, res: Response) => {
 
 // POST /trips/:tripId/orders — manually add an order
 router.post('/trips/:tripId/orders', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { tripId } = req.params;
   const { type, vendor, booking_ref, start_datetime, end_datetime, price, currency, status } =
     req.body as {
@@ -118,7 +118,7 @@ router.post('/trips/:tripId/orders', async (req, res: Response) => {
 
 // PATCH /orders/:id — edit order fields
 router.patch('/:id', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { id } = req.params;
 
   const orderCheck = await pool.query<{ trip_id: string | null }>(
@@ -155,7 +155,7 @@ router.patch('/:id', async (req, res: Response) => {
 
 // DELETE /orders/:id — delete order (cascade-deletes timeline slot)
 router.delete('/:id', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { id } = req.params;
 
   const orderCheck = await pool.query(

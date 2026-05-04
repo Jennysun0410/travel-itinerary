@@ -7,7 +7,7 @@ router.use(requireAuth);
 
 // GET /trips/:tripId/timeline — slots grouped by day
 router.get('/trips/:tripId/timeline', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { tripId } = req.params;
 
   const memberCheck = await pool.query(
@@ -43,7 +43,7 @@ router.get('/trips/:tripId/timeline', async (req, res: Response) => {
 
 // POST /trips/:tripId/timeline — create a slot
 router.post('/trips/:tripId/timeline', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { tripId } = req.params;
   const { order_id, day, position } = req.body as { order_id: string; day: string; position?: number };
 
@@ -95,7 +95,7 @@ router.post('/trips/:tripId/timeline', async (req, res: Response) => {
 
 // PATCH /timeline/:id — update day and/or position
 router.patch('/:id', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { id } = req.params;
   const { day, position } = req.body as { day?: string; position?: number };
 
@@ -138,7 +138,7 @@ router.patch('/:id', async (req, res: Response) => {
 
 // DELETE /timeline/:id — remove slot (keep order)
 router.delete('/:id', async (req, res: Response) => {
-  const auth = req as AuthRequest;
+  const auth = req as unknown as AuthRequest;
   const { id } = req.params;
 
   const slotCheck = await pool.query(
