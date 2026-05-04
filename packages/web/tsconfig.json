@@ -19,6 +19,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@travel/shared": [
+        "./src/shared/index.ts"
+      ],
+      "@travel/shared/*": [
+        "./src/shared/*"
       ]
     },
     "allowJs": true,
