@@ -12,7 +12,6 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
-    "@travel/shared": "*",
     "crypto-js": "^4.2.0",
     "dotenv": "^16.4.7",
     "express": "^4.19.0",

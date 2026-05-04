@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import pool from '../db/client';
 import { checkParseRateLimit } from './ratelimit';
-import type { OrderType } from '@travel/shared';
+type OrderType = 'flight' | 'accommodation' | 'activity';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
