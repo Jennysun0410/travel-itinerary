@@ -1,0 +1,9 @@
+## Tasks
+
+- [x] 1. Update `packages/api/src/email/gmail.ts`: Replace the Gmail search query string in `scanGmailByDateRange` with the new combined query: `(from:(agoda.com OR booking.com OR airbnb.com OR klook.com OR trip.com OR evaair.com OR china-airlines.com OR flyscoot.com OR airasia.com OR tigerairtw.com OR flypeach.com) OR subject:(confirmation OR 確認 OR 預訂 OR 訂單 OR itinerary OR e-ticket OR booking)) after:${afterDate} before:${beforeDate}`. Remove the old debug log line `console.log('[gmail] GMAIL_REDIRECT_URI:', ...)`.
+
+- [x] 2. Update `packages/api/src/email/parser.ts`: Add `is_booking: boolean` to the Claude prompt's expected JSON schema. In the prompt, add instruction: "Set is_booking to true only if this email is a booking/reservation confirmation (flight, accommodation, or activity). Promotional emails, newsletters, and receipts without booking details should have is_booking: false." After parsing Claude's response, if `parsed.is_booking === false`, return immediately without inserting into the database.
+
+- [x] 3. Update `packages/api/src/routes/orders.ts`: Add `PATCH /orders/:id/confirm` endpoint that requires auth, verifies the requesting user is the order creator, sets `flagged_for_review = false` for the given order id, and returns the updated order as JSON. Return 404 if the order is not found or does not belong to the user.
+
+- [x] 4. Update `packages/web/src/app/trips/[id]/orders/page.tsx`: For each order where `order.flaggedForReview === true`, display an orange "待確認" badge (inline span next to vendor name, background `#f59e0b`, color white, padding `2px 8px`, borderRadius `10px`, fontSize `12px`, cursor `pointer`). On badge click, call `apiFetch(`/orders/${order.id}/confirm`, { method: 'PATCH' })` then update the order in local state by setting `flaggedForReview` to `false`. No confirmation dialog needed.
