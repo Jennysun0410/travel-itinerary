@@ -9,6 +9,8 @@ CREATE TABLE users (
   email       TEXT NOT NULL UNIQUE,
   display_name TEXT NOT NULL,
   avatar_url  TEXT,
+  username    TEXT,
+  role        TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
   provider    TEXT NOT NULL CHECK (provider IN ('google', 'apple')),
   provider_id TEXT NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
