@@ -1,5 +1,5 @@
 'use client';
-// v2
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../../lib/api';
@@ -24,7 +24,7 @@ export default function TripsPage() {
   return (
     <main style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>My Trips ✓</h1>
+        <h1>My Trips</h1>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button
             onClick={() => setShowHelp(true)}
