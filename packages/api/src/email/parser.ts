@@ -11,6 +11,7 @@ const BOOKING_KEYWORDS = [
 ];
 
 interface ParsedOrder {
+  is_booking: boolean;
   type: OrderType;
   vendor: string;
   booking_ref: string;
@@ -59,13 +60,14 @@ export async function enqueueEmailForParsing(userId: string, emailId: string, bo
 
 async function parseEmail(userId: string, emailId: string, body: string): Promise<void> {
   const prompt = `You are extracting booking information from a travel confirmation email.
-Extract the following fields as JSON. If a field cannot be determined with confidence, set it to null.
+First determine if this is a booking/reservation confirmation email. Set is_booking to true only if the email confirms a specific booking (flight, accommodation, or activity) with booking details. Promotional emails, newsletters, marketing offers, and payment receipts without booking details should have is_booking: false.
 
 Email content:
 ${body.slice(0, 8000)}
 
 Return ONLY valid JSON with these fields:
 {
+  "is_booking": true or false,
   "type": "flight" | "accommodation" | "activity",
   "vendor": string or null,
   "booking_ref": string or null,
@@ -90,6 +92,8 @@ Return ONLY valid JSON with these fields:
   } catch {
     parsed = {};
   }
+
+  if (parsed.is_booking === false) return;
 
   const requiredFields = ['type', 'vendor', 'booking_ref', 'start_datetime', 'end_datetime'];
   const hasAllRequired = requiredFields.every(f => parsed[f as keyof ParsedOrder] != null);

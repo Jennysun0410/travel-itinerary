@@ -81,6 +81,11 @@ export default function OrdersPage({ params }: Props) {
     setOrders(o => o.filter(x => x.id !== id));
   };
 
+  const handleConfirm = async (id: string) => {
+    await apiFetch(`/orders/${id}/confirm`, { method: 'PATCH' });
+    setOrders(o => o.map(x => x.id === id ? { ...x, flaggedForReview: false } : x));
+  };
+
   return (
     <main style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -171,7 +176,7 @@ export default function OrdersPage({ params }: Props) {
           ) : (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <div>
-                <strong>{order.vendor}</strong> — <em>{order.type}</em>
+                <strong>{order.vendor}</strong>{order.flaggedForReview && <span onClick={() => handleConfirm(order.id)} style={{ marginLeft: 8, background: '#f59e0b', color: 'white', padding: '2px 8px', borderRadius: 10, fontSize: 12, cursor: 'pointer' }}>待確認</span>} — <em>{order.type}</em>
                 <p style={{ margin: '2px 0', color: '#666', fontSize: 13 }}>Ref: {order.bookingRef || '—'} | {order.price} {order.currency}</p>
                 <p style={{ margin: '2px 0', fontSize: 13 }}>{order.startDatetime} – {order.endDatetime}</p>
                 <p style={{ margin: '2px 0', fontSize: 12, color: '#999' }}>Added by {order.createdByName}</p>

@@ -4,7 +4,6 @@ import { encrypt, decrypt } from './encryption';
 import { enqueueEmailForParsing } from './parser';
 
 const GMAIL_REDIRECT_URI = process.env.GOOGLE_GMAIL_REDIRECT_URI ?? process.env.GOOGLE_REDIRECT_URI?.replace('auth/google/callback', 'email/gmail/callback');
-console.log('[gmail] GMAIL_REDIRECT_URI:', GMAIL_REDIRECT_URI);
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -90,7 +89,7 @@ export async function scanGmailByDateRange(userId: string, from: string, to: str
   const gmail = google.gmail({ version: 'v1', auth });
   const afterDate = from.replace(/-/g, '/');
   const beforeDate = to.replace(/-/g, '/');
-  const q = `subject:(booking confirmation OR reservation OR order confirmation OR e-ticket OR 預訂確認 OR 訂單確認 OR 訂房確認 OR 預訂成功 OR Agoda OR Booking.com OR Airbnb OR 機票 OR itinerary) after:${afterDate} before:${beforeDate}`;
+  const q = `(from:(agoda.com OR booking.com OR airbnb.com OR klook.com OR trip.com OR evaair.com OR china-airlines.com OR flyscoot.com OR airasia.com OR tigerairtw.com OR flypeach.com) OR subject:(confirmation OR 確認 OR 預訂 OR 訂單 OR itinerary OR e-ticket OR booking)) after:${afterDate} before:${beforeDate}`;
 
   const { data } = await gmail.users.messages.list({ userId: 'me', q, maxResults: 50 });
 

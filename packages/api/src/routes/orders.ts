@@ -153,6 +153,25 @@ router.patch('/:id', async (req, res: Response) => {
   res.json(mapOrder({ ...rows[0], created_by_name: userRow.rows[0].display_name }));
 });
 
+// PATCH /orders/:id/confirm — clear flagged_for_review
+router.patch('/:id/confirm', async (req, res: Response) => {
+  const auth = req as AuthRequest;
+  const { id } = req.params;
+
+  const { rows } = await pool.query(
+    `UPDATE orders SET flagged_for_review = false
+     WHERE id = $1 AND created_by = $2
+     RETURNING *`,
+    [id, auth.userId],
+  );
+  if (!rows.length) {
+    res.status(404).json({ error: 'not_found', message: 'Order not found or access denied' });
+    return;
+  }
+  const userRow = await pool.query<{ display_name: string }>(`SELECT display_name FROM users WHERE id = $1`, [auth.userId]);
+  res.json(mapOrder({ ...rows[0], created_by_name: userRow.rows[0].display_name }));
+});
+
 // DELETE /orders/:id — delete order (cascade-deletes timeline slot)
 router.delete('/:id', async (req, res: Response) => {
   const auth = req as AuthRequest;
