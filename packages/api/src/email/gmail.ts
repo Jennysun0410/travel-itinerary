@@ -90,7 +90,7 @@ export async function scanGmailByDateRange(userId: string, from: string, to: str
   const gmail = google.gmail({ version: 'v1', auth });
   const afterDate = from.replace(/-/g, '/');
   const beforeDate = to.replace(/-/g, '/');
-  const q = `subject:(booking confirmation OR reservation OR order confirmation OR e-ticket) after:${afterDate} before:${beforeDate}`;
+  const q = `subject:(booking confirmation OR reservation OR order confirmation OR e-ticket OR 預訂確認 OR 訂單確認 OR 訂房確認 OR 預訂成功 OR Agoda OR Booking.com OR Airbnb OR 機票 OR itinerary) after:${afterDate} before:${beforeDate}`;
 
   const { data } = await gmail.users.messages.list({ userId: 'me', q, maxResults: 50 });
 
