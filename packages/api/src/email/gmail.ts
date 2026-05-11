@@ -4,6 +4,7 @@ import { encrypt, decrypt } from './encryption';
 import { enqueueEmailForParsing } from './parser';
 
 const GMAIL_REDIRECT_URI = process.env.GOOGLE_GMAIL_REDIRECT_URI ?? process.env.GOOGLE_REDIRECT_URI?.replace('auth/google/callback', 'email/gmail/callback');
+console.log('[gmail] GMAIL_REDIRECT_URI:', GMAIL_REDIRECT_URI);
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
