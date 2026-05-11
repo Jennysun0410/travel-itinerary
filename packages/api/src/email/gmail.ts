@@ -68,7 +68,7 @@ async function setupGmailPushNotifications(userId: string, accessToken: string):
   });
 }
 
-export async function scanGmailByDateRange(userId: string, from: string, to: string): Promise<{ imported: number; skipped: number }> {
+export async function scanGmailByDateRange(userId: string, from: string, to: string, tripDateRange?: { start: string; end: string }): Promise<{ imported: number; skipped: number }> {
   const { rows } = await pool.query<{ access_token: string; refresh_token: string; token_expiry: Date }>(
     `SELECT access_token, refresh_token, token_expiry FROM email_connections WHERE user_id = $1 AND provider = 'gmail'`,
     [userId],
@@ -104,7 +104,7 @@ export async function scanGmailByDateRange(userId: string, from: string, to: str
     }
     const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
     const raw = extractEmailText(full.data);
-    await enqueueEmailForParsing(userId, msg.id!, raw);
+    await enqueueEmailForParsing(userId, msg.id!, raw, tripDateRange);
     imported++;
   }
 

@@ -42,7 +42,7 @@ export function isBookingEmail(subject: string): boolean {
   return BOOKING_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-export async function enqueueEmailForParsing(userId: string, emailId: string, body: string): Promise<void> {
+export async function enqueueEmailForParsing(userId: string, emailId: string, body: string, tripDateRange?: { start: string; end: string }): Promise<void> {
   const alreadyParsed = await pool.query(
     `SELECT 1 FROM orders WHERE raw_email_id = $1`,
     [emailId],
@@ -55,10 +55,10 @@ export async function enqueueEmailForParsing(userId: string, emailId: string, bo
     return;
   }
 
-  await parseEmail(userId, emailId, body);
+  await parseEmail(userId, emailId, body, tripDateRange);
 }
 
-async function parseEmail(userId: string, emailId: string, body: string): Promise<void> {
+async function parseEmail(userId: string, emailId: string, body: string, tripDateRange?: { start: string; end: string }): Promise<void> {
   const prompt = `You are extracting booking information from a travel confirmation email.
 First determine if this is a booking/reservation confirmation email. Set is_booking to true only if the email confirms a specific booking (flight, accommodation, or activity) with booking details. Promotional emails, newsletters, marketing offers, and payment receipts without booking details should have is_booking: false.
 
@@ -94,6 +94,12 @@ Return ONLY valid JSON with these fields:
   }
 
   if (parsed.is_booking === false) return;
+
+  if (tripDateRange) {
+    if (!parsed.start_datetime) return;
+    const dateStr = parsed.start_datetime.slice(0, 10);
+    if (dateStr < tripDateRange.start || dateStr > tripDateRange.end) return;
+  }
 
   const requiredFields = ['type', 'vendor', 'booking_ref', 'start_datetime', 'end_datetime'];
   const hasAllRequired = requiredFields.every(f => parsed[f as keyof ParsedOrder] != null);

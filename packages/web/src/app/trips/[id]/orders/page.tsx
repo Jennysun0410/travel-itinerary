@@ -57,7 +57,7 @@ export default function OrdersPage({ params }: Props) {
     try {
       const result = await apiFetch<{ imported: number; skipped: number }>('/email/gmail/scan', {
         method: 'POST',
-        body: JSON.stringify({ from: scanFrom, to: scanTo }),
+        body: JSON.stringify({ from: scanFrom, to: scanTo, trip_id: params.id }),
       });
       setScanResult(`已匯入 ${result.imported} 筆訂單${result.skipped > 0 ? `，略過 ${result.skipped} 筆重複` : ''}`);
       loadOrders();
