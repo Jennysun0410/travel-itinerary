@@ -34,7 +34,8 @@ router.post('/gmail/scan', requireAuth, async (req, res: Response) => {
       res.status(400).json({ error: 'no_gmail_connection', message: 'No Gmail account connected' });
       return;
     }
-    throw err;
+    console.error('Gmail scan error:', err);
+    res.status(500).json({ error: 'scan_failed', message: (err instanceof Error ? err.message : 'Unknown error') });
   }
 });
 
