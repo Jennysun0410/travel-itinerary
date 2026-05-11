@@ -1,8 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiFetch, getApiUrl } from '../../../lib/api';
+import { apiFetch } from '../../../lib/api';
 import type { EmailConnection } from '@travel/shared';
+
+async function redirectToGmailConnect() {
+  const { url } = await apiFetch<{ url: string }>('/email/gmail/connect-url');
+  window.location.href = url;
+}
 
 export default function EmailSettingsPage() {
   const [connections, setConnections] = useState<EmailConnection[]>([]);
@@ -30,8 +35,7 @@ export default function EmailSettingsPage() {
         {connections.length === 0 && <li style={{ color: '#999' }}>No email accounts connected</li>}
       </ul>
       <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-        <a href={getApiUrl('/email/gmail/connect')} style={{ padding: '8px 16px', background: '#EA4335', color: '#fff', borderRadius: 6, textDecoration: 'none' }}>Connect Gmail</a>
-        <a href={getApiUrl('/email/outlook/connect')} style={{ padding: '8px 16px', background: '#0078D4', color: '#fff', borderRadius: 6, textDecoration: 'none' }}>Connect Outlook</a>
+        <button onClick={redirectToGmailConnect} style={{ padding: '8px 16px', background: '#EA4335', color: '#fff', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 14 }}>Connect Gmail</button>
       </div>
     </main>
   );

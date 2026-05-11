@@ -12,6 +12,11 @@ router.get('/gmail/connect', requireAuth, (req, res: Response) => {
   res.redirect(getGmailAuthUrl(auth.userId));
 });
 
+router.get('/gmail/connect-url', requireAuth, (req, res: Response) => {
+  const auth = req as AuthRequest;
+  res.json({ url: getGmailAuthUrl(auth.userId) });
+});
+
 router.get('/gmail/callback', async (req: Request, res: Response) => {
   const { code, state: userId } = req.query as { code: string; state: string };
   await handleGmailCallback(code, userId);
