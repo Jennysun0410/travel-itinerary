@@ -9,7 +9,7 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI,
 );
 
-export function getGmailAuthUrl(userId: string): string {
+export function getGmailAuthUrl(userId: string, loginHint?: string): string {
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: [
@@ -18,6 +18,7 @@ export function getGmailAuthUrl(userId: string): string {
     ],
     prompt: 'consent',
     state: userId,
+    login_hint: loginHint,
   });
 }
 

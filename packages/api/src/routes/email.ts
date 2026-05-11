@@ -9,12 +9,12 @@ const router = Router();
 // Gmail OAuth flow
 router.get('/gmail/connect', requireAuth, (req, res: Response) => {
   const auth = req as AuthRequest;
-  res.redirect(getGmailAuthUrl(auth.userId));
+  res.redirect(getGmailAuthUrl(auth.userId, auth.userEmail));
 });
 
 router.get('/gmail/connect-url', requireAuth, (req, res: Response) => {
   const auth = req as AuthRequest;
-  res.json({ url: getGmailAuthUrl(auth.userId) });
+  res.json({ url: getGmailAuthUrl(auth.userId, auth.userEmail) });
 });
 
 router.get('/gmail/callback', async (req: Request, res: Response) => {
