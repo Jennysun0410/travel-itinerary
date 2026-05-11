@@ -105,7 +105,7 @@ export default function OrdersPage({ params }: Props) {
       {addMode === 'email' && (
         <div style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 16 }}>
           {!gmailConnected ? (
-            <p style={{ margin: 0 }}>尚未連結 Gmail — <a href="/settings/email" style={{ color: '#0070f3' }}>前往設定</a></p>
+            <p style={{ margin: 0 }}>尚未連結 Gmail — <a href="/settings/email" onClick={() => sessionStorage.setItem('gmailReturnUrl', window.location.pathname)} style={{ color: '#0070f3' }}>前往設定</a></p>
           ) : (
             <form onSubmit={handleScan} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', gap: 8 }}>
