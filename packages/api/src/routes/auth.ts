@@ -14,9 +14,9 @@ router.get('/google/callback', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'missing_code', message: 'Authorization code is required' });
     return;
   }
-  const { token, username, hasGmail } = await handleGoogleCallback(code);
-  const step = !username ? 1 : !hasGmail ? 2 : 0;
-  res.redirect(`${process.env.WEB_URL ?? 'http://localhost:3000'}/auth/callback?token=${token}&onboarding=${step > 0}&step=${step}`);
+  const { token, username } = await handleGoogleCallback(code);
+  const needsOnboarding = !username;
+  res.redirect(`${process.env.WEB_URL ?? 'http://localhost:3000'}/auth/callback?token=${token}&onboarding=${needsOnboarding}&step=1`);
 });
 
 router.post('/apple/callback', async (req: Request, res: Response) => {
