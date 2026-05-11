@@ -8,7 +8,9 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { apiFetch } from '../../../../lib/api';
-import type { Order, TimelineSlot } from '@travel/shared';
+import type { Order, TimelineSlot, TripDestination } from '@travel/shared';
+import { resolveTimezone } from '@travel/shared';
+import LocalDatetime from '../../../../components/LocalDatetime';
 
 interface Props { params: { id: string } }
 
@@ -27,20 +29,22 @@ function DraggableOrderCard({ order }: { order: Order }) {
   );
 }
 
-function SortableSlotCard({ slot }: { slot: SlottedOrder }) {
+function SortableSlotCard({ slot, destinations }: { slot: SlottedOrder; destinations: TripDestination[] }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slot.id, data: { type: 'slot', slot } });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  const tz = resolveTimezone(slot.order.bookingDate ?? null, destinations);
   return (
     <div ref={setNodeRef} style={{ ...style, border: '1px solid #b3d4ff', borderRadius: 6, padding: '8px 12px', background: '#eef4ff', marginBottom: 6, cursor: 'grab' }} {...listeners} {...attributes}>
       <strong style={{ fontSize: 13 }}>{slot.order.vendor}</strong>
       <span style={{ fontSize: 12, color: '#555', marginLeft: 6 }}>{slot.order.type}</span>
+      {slot.order.startDatetime && <p style={{ margin: '2px 0', fontSize: 11, color: '#555' }}><LocalDatetime utcIso={slot.order.startDatetime} timezone={tz} /></p>}
       <p style={{ margin: '2px 0', fontSize: 11, color: '#888' }}>Placed by {slot.placedByName}</p>
     </div>
   );
 }
 
-function DayColumn({ day, slots, tripId, onSlotMoved, onSlotRemoved }: {
-  day: string; slots: SlottedOrder[]; tripId: string;
+function DayColumn({ day, slots, tripId, destinations, onSlotMoved, onSlotRemoved }: {
+  day: string; slots: SlottedOrder[]; tripId: string; destinations: TripDestination[];
   onSlotMoved: (slotId: string, newDay: string) => void;
   onSlotRemoved: (slotId: string, orderId: string) => void;
 }) {
@@ -51,7 +55,7 @@ function DayColumn({ day, slots, tripId, onSlotMoved, onSlotRemoved }: {
       <SortableContext items={slots.map(s => s.id)} strategy={verticalListSortingStrategy}>
         {slots.map(slot => (
           <div key={slot.id} style={{ position: 'relative' }}>
-            <SortableSlotCard slot={slot} />
+            <SortableSlotCard slot={slot} destinations={destinations} />
             <button onClick={() => onSlotRemoved(slot.id, slot.orderId)}
               style={{ position: 'absolute', top: 4, right: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 14 }}>×</button>
           </div>
@@ -66,6 +70,7 @@ export default function TimelinePage({ params }: Props) {
   const [timeline, setTimeline] = useState<TimelineByDay>({});
   const [unscheduled, setUnscheduled] = useState<Order[]>([]);
   const [days, setDays] = useState<string[]>([]);
+  const [destinations, setDestinations] = useState<TripDestination[]>([]);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -82,9 +87,9 @@ export default function TimelinePage({ params }: Props) {
     setUnscheduled(orders.filter(o => !scheduledIds.has(o.id)));
   }, [tripId]);
 
-  // Load trip dates for day columns
+  // Load trip dates and destinations for day columns and timezone resolution
   useEffect(() => {
-    apiFetch<{ startDate: string; endDate: string }>(`/trips/${tripId}`).then(trip => {
+    apiFetch<{ startDate: string; endDate: string; destinations?: TripDestination[] }>(`/trips/${tripId}`).then(trip => {
       const start = new Date(trip.startDate);
       const end = new Date(trip.endDate);
       const d: string[] = [];
@@ -92,6 +97,7 @@ export default function TimelinePage({ params }: Props) {
         d.push(dt.toISOString().slice(0, 10));
       }
       setDays(d);
+      setDestinations(trip.destinations ?? []);
     }).catch(console.error);
     loadTimeline();
   }, [tripId, loadTimeline]);
@@ -192,7 +198,7 @@ export default function TimelinePage({ params }: Props) {
         {/* Timeline columns */}
         <div style={{ flex: 1, overflowX: 'auto', display: 'flex', gap: 12, paddingBottom: 8 }}>
           {days.map(day => (
-            <DayColumn key={day} day={day} slots={timeline[day] ?? []} tripId={tripId}
+            <DayColumn key={day} day={day} slots={timeline[day] ?? []} tripId={tripId} destinations={destinations}
               onSlotMoved={handleSlotMoved} onSlotRemoved={handleSlotRemoved} />
           ))}
         </div>

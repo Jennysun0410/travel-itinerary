@@ -17,12 +17,20 @@ export interface TripMember {
   joinedAt: string;
 }
 
+export interface TripDestination {
+  name: string;
+  timezone: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface Trip {
   id: string;
   name: string;
   destination: string;
   startDate: string;
   endDate: string;
+  destinations: TripDestination[];
   ownerId: string;
   members: TripMember[];
   createdAt: string;
@@ -48,6 +56,7 @@ export interface Order {
   currency: string;
   status: OrderStatus;
   rawEmailId?: string;
+  bookingDate?: string | null;
   flaggedForReview: boolean;
   createdAt: string;
   updatedAt: string;

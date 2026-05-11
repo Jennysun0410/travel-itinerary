@@ -6,29 +6,43 @@ import crypto from 'crypto';
 const router = Router();
 router.use(requireAuth);
 
+type TripDestination = { name: string; timezone: string; startDate: string; endDate: string };
+
 // POST /trips — create a trip
 router.post('/', async (req, res: Response) => {
   const auth = req as AuthRequest;
-  const { name, destination, start_date, end_date } = req.body as {
-    name: string; destination: string; start_date: string; end_date: string;
-  };
+  const { name, destinations } = req.body as { name: string; destinations: TripDestination[] };
 
-  if (!name || !destination || !start_date || !end_date) {
-    res.status(400).json({ error: 'validation_error', message: 'name, destination, start_date, and end_date are required' });
+  if (!name) {
+    res.status(400).json({ error: 'validation_error', message: 'name is required' });
     return;
   }
-  if (new Date(end_date) < new Date(start_date)) {
-    res.status(400).json({ error: 'validation_error', message: 'end_date must be on or after start_date' });
+  if (!Array.isArray(destinations)) {
+    res.status(400).json({ error: 'validation_error', message: 'destinations must be an array' });
     return;
   }
+  for (const d of destinations) {
+    if (!d.name || !d.timezone || !d.startDate || !d.endDate) {
+      res.status(400).json({ error: 'validation_error', message: 'each destination requires name, timezone, startDate, endDate' });
+      return;
+    }
+  }
+
+  const destination = destinations[0]?.name ?? '';
+  const start_date = destinations.length
+    ? new Date(Math.min(...destinations.map(d => new Date(d.startDate).getTime()))).toISOString().split('T')[0]
+    : null;
+  const end_date = destinations.length
+    ? new Date(Math.max(...destinations.map(d => new Date(d.endDate).getTime()))).toISOString().split('T')[0]
+    : null;
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const { rows } = await client.query<{ id: string }>(
-      `INSERT INTO trips (name, destination, start_date, end_date, owner_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [name, destination, start_date, end_date, auth.userId],
+      `INSERT INTO trips (name, destination, start_date, end_date, destinations, owner_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [name, destination, start_date, end_date, JSON.stringify(destinations), auth.userId],
     );
     const tripId = rows[0].id;
     await client.query(
@@ -51,7 +65,7 @@ router.post('/', async (req, res: Response) => {
 router.get('/', async (req, res: Response) => {
   const auth = req as AuthRequest;
   const { rows } = await pool.query(
-    `SELECT t.id, t.name, t.destination, t.start_date, t.end_date, t.owner_id, t.created_at, t.updated_at
+    `SELECT t.id, t.name, t.destination, t.start_date, t.end_date, t.destinations, t.owner_id, t.created_at, t.updated_at
      FROM trips t
      JOIN trip_members tm ON tm.trip_id = t.id
      WHERE tm.user_id = $1
@@ -213,7 +227,7 @@ router.get('/:id/members', async (req, res: Response) => {
 
 async function getTripById(tripId: string, userId: string) {
   const { rows } = await pool.query(
-    `SELECT t.id, t.name, t.destination, t.start_date, t.end_date, t.owner_id, t.created_at, t.updated_at
+    `SELECT t.id, t.name, t.destination, t.start_date, t.end_date, t.destinations, t.owner_id, t.created_at, t.updated_at
      FROM trips t WHERE t.id = $1`,
     [tripId],
   );

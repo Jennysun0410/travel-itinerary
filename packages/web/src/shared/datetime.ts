@@ -42,3 +42,14 @@ export function guessTimezoneFromDestination(destination: string): string {
   }
   return 'UTC';
 }
+
+export function resolveTimezone(
+  bookingDate: string | null,
+  destinations: Array<{ timezone: string; startDate: string; endDate: string }>,
+): string {
+  const local = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (!bookingDate) return local;
+  const sorted = [...destinations].sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const match = sorted.find(d => d.startDate <= bookingDate && bookingDate <= d.endDate);
+  return match?.timezone ?? local;
+}

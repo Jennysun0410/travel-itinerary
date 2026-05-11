@@ -21,6 +21,21 @@ interface ParsedOrder {
   confidence: 'high' | 'low';
 }
 
+function extractBookingDate(type: OrderType, body: string): string | null {
+  const patterns: Record<OrderType, RegExp> = {
+    flight: /Departure[\s:]+([A-Za-z]+ \d+, \d{4}|\d{4}-\d{2}-\d{2})/i,
+    accommodation: /Check-in[\s:]+([A-Za-z]+ \d+, \d{4}|\d{4}-\d{2}-\d{2})/i,
+    activity: /Date[\s:]+([A-Za-z]+ \d+, \d{4}|\d{4}-\d{2}-\d{2})/i,
+  };
+  const match = body.match(patterns[type]);
+  if (!match) return null;
+  try {
+    return new Date(match[1]).toISOString().split('T')[0];
+  } catch {
+    return null;
+  }
+}
+
 export function isBookingEmail(subject: string): boolean {
   const lower = subject.toLowerCase();
   return BOOKING_KEYWORDS.some(kw => lower.includes(kw));
@@ -80,17 +95,20 @@ Return ONLY valid JSON with these fields:
   const hasAllRequired = requiredFields.every(f => parsed[f as keyof ParsedOrder] != null);
   const flagged = !hasAllRequired;
 
+  const orderType = parsed.type ?? 'activity';
+  const bookingDate = extractBookingDate(orderType, body);
+
   await pool.query(
     `INSERT INTO orders (
        trip_id, created_by, type, vendor, booking_ref,
        start_datetime, end_datetime, price, currency,
-       raw_email_id, flagged_for_review, status
+       raw_email_id, flagged_for_review, status, booking_date
      ) VALUES (
-       NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'confirmed'
+       NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'confirmed', $11
      )`,
     [
       userId,
-      parsed.type ?? 'activity',
+      orderType,
       parsed.vendor ?? '',
       parsed.booking_ref ?? '',
       parsed.start_datetime ?? new Date().toISOString(),
@@ -99,6 +117,7 @@ Return ONLY valid JSON with these fields:
       parsed.currency ?? 'USD',
       emailId,
       flagged,
+      bookingDate,
     ],
   );
 }

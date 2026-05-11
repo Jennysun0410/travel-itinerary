@@ -190,6 +190,7 @@ function mapOrder(row: Record<string, unknown>) {
     currency: row.currency,
     status: row.status,
     rawEmailId: row.raw_email_id,
+    bookingDate: row.booking_date ?? null,
     flaggedForReview: row.flagged_for_review,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
