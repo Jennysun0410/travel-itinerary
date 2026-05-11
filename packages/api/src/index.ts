@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
 import authRouter from './routes/auth';
 import tripsRouter from './routes/trips';
 import ordersRouter from './routes/orders';
@@ -8,6 +9,7 @@ import emailRouter from './routes/email';
 import usersRouter from './routes/users';
 
 const app = express();
+app.use(cors({ origin: ['https://travel-itinerary-web.vercel.app', 'http://localhost:3000'], credentials: true }));
 app.use(express.json());
 
 app.use('/auth', authRouter);
