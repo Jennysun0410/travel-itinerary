@@ -19,8 +19,13 @@ router.get('/gmail/connect-url', requireAuth, (req, res: Response) => {
 
 router.get('/gmail/callback', async (req: Request, res: Response) => {
   const { code, state: userId } = req.query as { code: string; state: string };
-  await handleGmailCallback(code, userId);
-  res.redirect(`${process.env.WEB_URL ?? 'http://localhost:3000'}/settings/email?connected=gmail`);
+  try {
+    await handleGmailCallback(code, userId);
+    res.redirect(`${process.env.WEB_URL ?? 'http://localhost:3000'}/settings/email?connected=gmail`);
+  } catch (err) {
+    console.error('Gmail callback error:', err);
+    res.redirect(`${process.env.WEB_URL ?? 'http://localhost:3000'}/settings/email?error=gmail_connect_failed`);
+  }
 });
 
 // Gmail PubSub push handler
