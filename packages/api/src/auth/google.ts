@@ -42,6 +42,11 @@ export async function handleGoogleCallback(code: string): Promise<{ token: strin
   );
 
   const { id: userId, username } = rows[0];
+  const { rows: gmailRows } = await pool.query(
+    `SELECT 1 FROM email_connections WHERE user_id = $1 AND provider = 'gmail'`,
+    [userId],
+  );
+  const hasGmail = gmailRows.length > 0;
   const token = signToken({ userId, email: payload.email!, role, username });
-  return { token, userId, username };
+  return { token, userId, username, hasGmail };
 }

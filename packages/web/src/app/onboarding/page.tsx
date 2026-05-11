@@ -1,20 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '../../lib/api';
+import { Suspense } from 'react';
 
 async function redirectToGmailConnect() {
   const { url } = await apiFetch<{ url: string }>('/email/gmail/connect-url');
   window.location.href = url;
 }
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const router = useRouter();
+  const params = useSearchParams();
+  const initialStep = Number(params.get('step') ?? '1');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(initialStep);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,5 +84,13 @@ export default function OnboardingPage() {
         </button>
       </form>
     </main>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<p>Loading…</p>}>
+      <OnboardingContent />
+    </Suspense>
   );
 }

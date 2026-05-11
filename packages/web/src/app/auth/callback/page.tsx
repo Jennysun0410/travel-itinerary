@@ -11,9 +11,10 @@ function AuthCallback() {
   useEffect(() => {
     const token = params.get('token');
     const needsOnboarding = params.get('onboarding') === 'true';
+    const step = params.get('step') ?? '1';
     if (token) {
       setToken(token);
-      router.replace(needsOnboarding ? '/onboarding' : '/trips');
+      router.replace(needsOnboarding ? `/onboarding?step=${step}` : '/trips');
     } else {
       router.replace('/?error=auth_failed');
     }
