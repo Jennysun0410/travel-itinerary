@@ -50,6 +50,8 @@ export async function handleGmailCallback(code: string, userId: string): Promise
 }
 
 async function setupGmailPushNotifications(userId: string, accessToken: string): Promise<void> {
+  if (!process.env.GOOGLE_PUBSUB_TOPIC) return;
+  void userId;
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
   const gmail = google.gmail({ version: 'v1', auth });
@@ -61,7 +63,6 @@ async function setupGmailPushNotifications(userId: string, accessToken: string):
       labelIds: ['INBOX'],
     },
   });
-  void userId;
 }
 
 export async function scanGmailByDateRange(userId: string, from: string, to: string): Promise<{ imported: number; skipped: number }> {
