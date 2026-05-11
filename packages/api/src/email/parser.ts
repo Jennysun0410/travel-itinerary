@@ -1,25 +1,146 @@
-import Anthropic from '@anthropic-ai/sdk';
 import pool from '../db/client';
 import { checkParseRateLimit } from './ratelimit';
 type OrderType = 'flight' | 'accommodation' | 'activity';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 const BOOKING_KEYWORDS = [
   'booking confirmation', 'reservation', 'order confirmation',
   'e-ticket', 'itinerary', 'booking reference', 'confirmation number',
+  '訂單確認', '預訂確認', '訂房確認', '機票確認', '確認信',
 ];
 
-interface ParsedOrder {
-  is_booking: boolean;
-  type: OrderType;
-  vendor: string;
-  booking_ref: string;
-  start_datetime: string;
-  end_datetime: string;
-  price: number;
-  currency: string;
-  confidence: 'high' | 'low';
+const BOOKING_BODY_KEYWORDS = [
+  'booking reference', 'confirmation number', 'order number', 'reservation number',
+  'booking id', 'confirmation code', 'e-ticket', 'booking details',
+  '訂單編號', '預訂編號', '確認碼', '訂位代碼',
+];
+
+function isBookingBody(body: string): boolean {
+  const lower = body.toLowerCase();
+  return BOOKING_BODY_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+function detectType(body: string): OrderType {
+  const lower = body.toLowerCase();
+  if (/flight|airline|departure|arrival|e-ticket|boarding pass|航班|機票|起飛|抵達|出發班機/.test(lower)) return 'flight';
+  if (/hotel|check-in|check-out|check in|check out|accommodation|hostel|resort|room|飯店|住宿|入住|退房|客房/.test(lower)) return 'accommodation';
+  return 'activity';
+}
+
+function extractBookingRef(body: string): string {
+  const patterns = [
+    /booking\s+(?:reference|ref|number|no\.?|id)[:\s#]+([A-Z0-9\-]{4,20})/i,
+    /confirmation\s+(?:number|no\.?|code|id)[:\s#]+([A-Z0-9\-]{4,20})/i,
+    /order\s+(?:id|number|no\.?)[:\s#]+([A-Z0-9\-]{4,20})/i,
+    /reservation\s+(?:number|no\.?|id|code)[:\s#]+([A-Z0-9\-]{4,20})/i,
+    /(?:ref|reference)[:\s#]+([A-Z0-9\-]{4,20})/i,
+    /訂單編號[：:\s]+([A-Z0-9\-]{4,20})/i,
+    /確認碼[：:\s]+([A-Z0-9\-]{4,20})/i,
+  ];
+  for (const p of patterns) {
+    const m = body.match(p);
+    if (m) return m[1].trim();
+  }
+  return '';
+}
+
+function extractVendor(body: string): string {
+  const patterns = [
+    /(?:your booking with|booked with|reservation at|stay at|flight with)[:\s]+([A-Za-z\s&\-\.]+?)(?:\n|<|,|\.|!)/i,
+    /(?:from|by)[:\s]+([A-Za-z\s&\-\.]{3,40}?)(?:\s*<|\n)/i,
+  ];
+  for (const p of patterns) {
+    const m = body.match(p);
+    if (m) {
+      const v = m[1].trim();
+      if (v.length >= 2 && v.length <= 50) return v;
+    }
+  }
+  return '';
+}
+
+function parseDate(str: string): string | null {
+  try {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return d.toISOString();
+  } catch { /* fall through */ }
+  return null;
+}
+
+function extractDatetimes(body: string): { start: string | null; end: string | null } {
+  const datePatterns = [
+    /(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})?)?)/g,
+    /([A-Za-z]+ \d{1,2},?\s+\d{4}(?:\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)?)/g,
+    /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/g,
+  ];
+
+  const startKeywords = ['departure', 'check-in', 'check in', 'start date', 'from', 'outbound', 'travel date', '出發', '入住', '開始'];
+  const endKeywords = ['return', 'check-out', 'check out', 'end date', 'arrival', 'inbound', '返回', '退房', '結束'];
+
+  const lower = body.toLowerCase();
+
+  function findNearDate(keywords: string[]): string | null {
+    for (const kw of keywords) {
+      const idx = lower.indexOf(kw);
+      if (idx === -1) continue;
+      const nearby = body.slice(idx, idx + 120);
+      for (const p of datePatterns) {
+        p.lastIndex = 0;
+        const m = p.exec(nearby);
+        if (m) {
+          const parsed = parseDate(m[1]);
+          if (parsed) return parsed;
+        }
+      }
+    }
+    return null;
+  }
+
+  const start = findNearDate(startKeywords);
+  const end = findNearDate(endKeywords);
+
+  // Fallback: grab first two dates from body
+  if (!start) {
+    const allDates: string[] = [];
+    for (const p of datePatterns) {
+      p.lastIndex = 0;
+      let m;
+      while ((m = p.exec(body)) !== null) {
+        const parsed = parseDate(m[1]);
+        if (parsed && !allDates.includes(parsed)) allDates.push(parsed);
+        if (allDates.length >= 2) break;
+      }
+      if (allDates.length >= 2) break;
+    }
+    return { start: allDates[0] ?? null, end: allDates[1] ?? null };
+  }
+
+  return { start, end };
+}
+
+function extractPrice(body: string): { price: number; currency: string } {
+  const currencyCodes = 'USD|TWD|EUR|GBP|JPY|CNY|HKD|SGD|AUD|THB|KRW|MYR|IDR|VND|PHP';
+  const patterns = [
+    new RegExp(`(${currencyCodes})\\s*([\\d,]+(?:\\.\\d{2})?)`, 'i'),
+    new RegExp(`([\\d,]+(?:\\.\\d{2})?)\\s*(${currencyCodes})`, 'i'),
+    /(?:total|amount|price|cost)[:\s]+\$?([\d,]+(?:\.\d{2})?)/i,
+    /\$\s*([\d,]+(?:\.\d{2})?)/,
+  ];
+
+  for (const p of patterns) {
+    const m = body.match(p);
+    if (!m) continue;
+    if (m[1] && /^[A-Z]{3}$/.test(m[1])) {
+      return { currency: m[1].toUpperCase(), price: parseFloat(m[2].replace(/,/g, '')) || 0 };
+    }
+    if (m[2] && /^[A-Z]{3}$/.test(m[2])) {
+      return { currency: m[2].toUpperCase(), price: parseFloat(m[1].replace(/,/g, '')) || 0 };
+    }
+    if (m[1]) {
+      return { currency: 'USD', price: parseFloat(m[1].replace(/,/g, '')) || 0 };
+    }
+  }
+
+  return { price: 0, currency: 'USD' };
 }
 
 function extractBookingDate(type: OrderType, body: string): string | null {
@@ -59,54 +180,24 @@ export async function enqueueEmailForParsing(userId: string, emailId: string, bo
 }
 
 async function parseEmail(userId: string, emailId: string, body: string, tripDateRange?: { start: string; end: string }): Promise<void> {
-  const prompt = `You are extracting booking information from a travel confirmation email.
-First determine if this is a booking/reservation confirmation email. Set is_booking to true only if the email confirms a specific booking (flight, accommodation, or activity) with booking details. Promotional emails, newsletters, marketing offers, and payment receipts without booking details should have is_booking: false.
+  if (!isBookingBody(body)) return;
 
-Email content:
-${body.slice(0, 8000)}
-
-Return ONLY valid JSON with these fields:
-{
-  "is_booking": true or false,
-  "type": "flight" | "accommodation" | "activity",
-  "vendor": string or null,
-  "booking_ref": string or null,
-  "start_datetime": ISO 8601 datetime string or null,
-  "end_datetime": ISO 8601 datetime string or null,
-  "price": number or null,
-  "currency": 3-letter ISO code or null
-}`;
-
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 512,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const text = message.content[0].type === 'text' ? message.content[0].text : '';
-  let parsed: Partial<ParsedOrder> = {};
-
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-  } catch {
-    parsed = {};
-  }
-
-  if (parsed.is_booking === false) return;
+  const type = detectType(body);
+  const booking_ref = extractBookingRef(body);
+  const vendor = extractVendor(body);
+  const { start, end } = extractDatetimes(body);
+  const { price, currency } = extractPrice(body);
 
   if (tripDateRange) {
-    if (!parsed.start_datetime) return;
-    const dateStr = parsed.start_datetime.slice(0, 10);
+    if (!start) return;
+    const dateStr = start.slice(0, 10);
     if (dateStr < tripDateRange.start || dateStr > tripDateRange.end) return;
   }
 
-  const requiredFields = ['type', 'vendor', 'booking_ref', 'start_datetime', 'end_datetime'];
-  const hasAllRequired = requiredFields.every(f => parsed[f as keyof ParsedOrder] != null);
+  const hasAllRequired = !!(type && vendor && booking_ref && start && end);
   const flagged = !hasAllRequired;
 
-  const orderType = parsed.type ?? 'activity';
-  const bookingDate = extractBookingDate(orderType, body);
+  const bookingDate = extractBookingDate(type, body);
 
   await pool.query(
     `INSERT INTO orders (
@@ -118,13 +209,13 @@ Return ONLY valid JSON with these fields:
      )`,
     [
       userId,
-      orderType,
-      parsed.vendor ?? '',
-      parsed.booking_ref ?? '',
-      parsed.start_datetime ?? new Date().toISOString(),
-      parsed.end_datetime ?? new Date().toISOString(),
-      parsed.price ?? 0,
-      parsed.currency ?? 'USD',
+      type,
+      vendor,
+      booking_ref,
+      start ?? new Date().toISOString(),
+      end ?? new Date().toISOString(),
+      price,
+      currency,
       emailId,
       flagged,
       bookingDate,
