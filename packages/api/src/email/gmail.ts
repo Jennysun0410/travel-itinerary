@@ -64,6 +64,49 @@ async function setupGmailPushNotifications(userId: string, accessToken: string):
   void userId;
 }
 
+export async function scanGmailByDateRange(userId: string, from: string, to: string): Promise<{ imported: number; skipped: number }> {
+  const { rows } = await pool.query<{ access_token: string; refresh_token: string; token_expiry: Date }>(
+    `SELECT access_token, refresh_token, token_expiry FROM email_connections WHERE user_id = $1 AND provider = 'gmail'`,
+    [userId],
+  );
+  if (!rows.length) throw new Error('no_gmail_connection');
+
+  const conn = rows[0];
+  const auth = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+  );
+  auth.setCredentials({
+    access_token: decrypt(conn.access_token),
+    refresh_token: decrypt(conn.refresh_token),
+    expiry_date: conn.token_expiry.getTime(),
+  });
+
+  const gmail = google.gmail({ version: 'v1', auth });
+  const afterDate = from.replace(/-/g, '/');
+  const beforeDate = to.replace(/-/g, '/');
+  const q = `subject:(booking confirmation OR reservation OR order confirmation OR e-ticket) after:${afterDate} before:${beforeDate}`;
+
+  const { data } = await gmail.users.messages.list({ userId: 'me', q, maxResults: 50 });
+
+  let imported = 0;
+  let skipped = 0;
+
+  for (const msg of data.messages ?? []) {
+    const existing = await pool.query(`SELECT 1 FROM orders WHERE raw_email_id = $1`, [msg.id!]);
+    if (existing.rowCount) {
+      skipped++;
+      continue;
+    }
+    const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
+    const raw = extractEmailText(full.data);
+    await enqueueEmailForParsing(userId, msg.id!, raw);
+    imported++;
+  }
+
+  return { imported, skipped };
+}
+
 export async function handleGmailPushNotification(userId: string): Promise<void> {
   const { rows } = await pool.query<{ access_token: string; refresh_token: string; token_expiry: Date }>(
     `SELECT access_token, refresh_token, token_expiry FROM email_connections WHERE user_id = $1 AND provider = 'gmail'`,

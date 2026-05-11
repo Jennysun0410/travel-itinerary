@@ -6,6 +6,7 @@ import tripsRouter from './routes/trips';
 import ordersRouter from './routes/orders';
 import timelineRouter from './routes/timeline';
 import emailRouter from './routes/email';
+import emailScanRouter from './routes/email-scan';
 import usersRouter from './routes/users';
 
 const app = express();
@@ -17,6 +18,7 @@ app.use('/trips', tripsRouter);
 app.use('/orders', ordersRouter);
 app.use('/timeline', timelineRouter);
 app.use('/email', emailRouter);
+app.use('/email', emailScanRouter);
 app.use('/users', usersRouter);
 
 app.get('/trips/:tripId', async (req, res) => {

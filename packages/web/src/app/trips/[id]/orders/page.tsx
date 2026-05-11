@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../../../lib/api';
-import type { Order, OrderType } from '@travel/shared';
+import type { EmailConnection, Order, OrderType } from '@travel/shared';
 
 interface Props { params: { id: string } }
 
@@ -18,17 +18,27 @@ const emptyForm = { type: 'activity' as OrderType, vendor: '', booking_ref: '', 
 export default function OrdersPage({ params }: Props) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState('');
-  const [showAdd, setShowAdd] = useState(false);
+  const [addMode, setAddMode] = useState<null | 'email' | 'manual'>(null);
+  const [gmailConnected, setGmailConnected] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Order>>({});
+  const [scanFrom, setScanFrom] = useState('');
+  const [scanTo, setScanTo] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<string | null>(null);
 
   const loadOrders = (type = filter) => {
     const qs = type ? `?type=${type}` : '';
     apiFetch<Order[]>(`/orders/trips/${params.id}/orders${qs}`).then(setOrders).catch(console.error);
   };
 
-  useEffect(() => { loadOrders(); }, [params.id]);
+  useEffect(() => {
+    loadOrders();
+    apiFetch<EmailConnection[]>('/email/connections')
+      .then(conns => setGmailConnected(conns.some(c => c.provider === 'gmail')))
+      .catch(console.error);
+  }, [params.id]);
 
   const handleFilterChange = (type: string) => { setFilter(type); loadOrders(type); };
 
@@ -36,8 +46,26 @@ export default function OrdersPage({ params }: Props) {
     e.preventDefault();
     const order = await apiFetch<Order>(`/orders/trips/${params.id}/orders`, { method: 'POST', body: JSON.stringify(form) });
     setOrders(o => [...o, order]);
-    setShowAdd(false);
+    setAddMode(null);
     setForm({ ...emptyForm });
+  };
+
+  const handleScan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const result = await apiFetch<{ imported: number; skipped: number }>('/email/gmail/scan', {
+        method: 'POST',
+        body: JSON.stringify({ from: scanFrom, to: scanTo }),
+      });
+      setScanResult(`已匯入 ${result.imported} 筆訂單${result.skipped > 0 ? `，略過 ${result.skipped} 筆重複` : ''}`);
+      loadOrders();
+    } catch (err) {
+      setScanResult(`匯入失敗：${(err as Error).message}`);
+    } finally {
+      setScanning(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -57,8 +85,42 @@ export default function OrdersPage({ params }: Props) {
     <main style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>Orders</h2>
-        <button onClick={() => setShowAdd(s => !s)} style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>+ Add Order</button>
+        <button
+          onClick={() => { setAddMode(null); setScanResult(null); }}
+          style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+        >
+          + Add Order
+        </button>
       </div>
+
+      {/* Mode selector */}
+      {addMode === null && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button onClick={() => setAddMode('email')} style={{ padding: '8px 16px', border: '1px solid #0070f3', borderRadius: 6, background: '#fff', color: '#0070f3', cursor: 'pointer' }}>從信箱匯入</button>
+          <button onClick={() => setAddMode('manual')} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: 6, background: '#fff', color: '#333', cursor: 'pointer' }}>手動新增</button>
+        </div>
+      )}
+
+      {/* Email import panel */}
+      {addMode === 'email' && (
+        <div style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 16 }}>
+          {!gmailConnected ? (
+            <p style={{ margin: 0 }}>尚未連結 Gmail — <a href="/settings/email" style={{ color: '#0070f3' }}>前往設定</a></p>
+          ) : (
+            <form onSubmit={handleScan} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <label style={{ flex: 1, fontSize: 13 }}>開始日期<input type="date" value={scanFrom} onChange={e => setScanFrom(e.target.value)} required style={{ display: 'block', padding: 8, borderRadius: 4, border: '1px solid #ccc', width: '100%', marginTop: 4 }} /></label>
+                <label style={{ flex: 1, fontSize: 13 }}>結束日期<input type="date" value={scanTo} onChange={e => setScanTo(e.target.value)} required style={{ display: 'block', padding: 8, borderRadius: 4, border: '1px solid #ccc', width: '100%', marginTop: 4 }} /></label>
+              </div>
+              {scanResult && <p style={{ margin: 0, fontSize: 13, color: scanResult.includes('失敗') ? 'red' : '#0a7c3e' }}>{scanResult}</p>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="submit" disabled={scanning} style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', opacity: scanning ? 0.6 : 1 }}>{scanning ? '匯入中…' : '開始匯入'}</button>
+                <button type="button" onClick={() => { setAddMode(null); setScanResult(null); }} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer' }}>取消</button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* Type filter tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -70,8 +132,8 @@ export default function OrdersPage({ params }: Props) {
         ))}
       </div>
 
-      {/* Add form */}
-      {showAdd && (
+      {/* Manual add form */}
+      {addMode === 'manual' && (
         <form onSubmit={handleAdd} style={{ background: '#f9f9f9', padding: 16, borderRadius: 8, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as OrderType }))} style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc' }}>
             <option value="flight">Flight</option>
@@ -86,7 +148,10 @@ export default function OrdersPage({ params }: Props) {
             <input placeholder="Price" type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} style={{ flex: 1, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
             <input placeholder="Currency" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} style={{ width: 80, padding: 8, borderRadius: 4, border: '1px solid #ccc' }} />
           </div>
-          <button type="submit" style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Save</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="submit" style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Save</button>
+            <button type="button" onClick={() => setAddMode(null)} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
+          </div>
         </form>
       )}
 
