@@ -73,6 +73,16 @@ Alternatives considered:
 
 Users sign in with Google or Apple. No email/password auth in MVP — reduces attack surface and simplifies the auth flow, since Gmail OAuth is already required for email parsing.
 
+## Deployment Decisions
+
+### Google OAuth: Published (not testing mode)
+
+The OAuth consent screen is published so any Google account can sign in without being manually whitelisted. The app only requests `openid`, `email`, and `profile` scopes — no Google review required.
+
+### Vercel Deployment Protection: Production off, Preview on
+
+Production URL is publicly accessible (Deployment Protection disabled) so any user can open the app. Preview deployments remain protected because preview and production share the same Railway PostgreSQL database — exposing preview URLs would allow uncontrolled access to production data.
+
 ## Risks / Trade-offs
 
 - **Email parsing accuracy** → Mitigation: Use LLM extraction with structured output schema; allow manual correction of parsed fields
