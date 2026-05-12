@@ -2,6 +2,18 @@ import pool from '../db/client';
 import { checkParseRateLimit } from './ratelimit';
 type OrderType = 'flight' | 'accommodation' | 'activity';
 
+export interface ParsedOrder {
+  raw_email_id: string;
+  type: OrderType;
+  vendor: string;
+  booking_ref: string;
+  start_datetime: string;
+  end_datetime: string;
+  price: number;
+  currency: string;
+  flagged_for_review: boolean;
+}
+
 const BOOKING_KEYWORDS = [
   'booking confirmation', 'reservation', 'order confirmation',
   'e-ticket', 'itinerary', 'booking reference', 'confirmation number',
@@ -176,28 +188,10 @@ export async function enqueueEmailForParsing(userId: string, emailId: string, bo
     return;
   }
 
-  await parseEmail(userId, emailId, body, tripDateRange);
-}
+  const order = parseEmail(emailId, body, tripDateRange);
+  if (!order) return;
 
-async function parseEmail(userId: string, emailId: string, body: string, tripDateRange?: { start: string; end: string }): Promise<void> {
-  if (!isBookingBody(body)) return;
-
-  const type = detectType(body);
-  const booking_ref = extractBookingRef(body);
-  const vendor = extractVendor(body);
-  const { start, end } = extractDatetimes(body);
-  const { price, currency } = extractPrice(body);
-
-  if (tripDateRange) {
-    if (!start) return;
-    const dateStr = start.slice(0, 10);
-    if (dateStr < tripDateRange.start || dateStr > tripDateRange.end) return;
-  }
-
-  const hasAllRequired = !!(type && vendor && booking_ref && start && end);
-  const flagged = !hasAllRequired;
-
-  const bookingDate = extractBookingDate(type, body);
+  const bookingDate = extractBookingDate(order.type, body);
 
   await pool.query(
     `INSERT INTO orders (
@@ -209,16 +203,47 @@ async function parseEmail(userId: string, emailId: string, body: string, tripDat
      )`,
     [
       userId,
-      type,
-      vendor,
-      booking_ref,
-      start ?? new Date().toISOString(),
-      end ?? new Date().toISOString(),
-      price,
-      currency,
-      emailId,
-      flagged,
+      order.type,
+      order.vendor,
+      order.booking_ref,
+      order.start_datetime,
+      order.end_datetime,
+      order.price,
+      order.currency,
+      order.raw_email_id,
+      order.flagged_for_review,
       bookingDate,
     ],
   );
+}
+
+export function parseEmail(emailId: string, body: string, tripDateRange?: { start: string; end: string }): ParsedOrder | null {
+  if (!isBookingBody(body)) return null;
+
+  const type = detectType(body);
+  const booking_ref = extractBookingRef(body);
+  const vendor = extractVendor(body);
+  const { start, end } = extractDatetimes(body);
+  const { price, currency } = extractPrice(body);
+
+  if (tripDateRange) {
+    if (!start) return null;
+    const dateStr = start.slice(0, 10);
+    if (dateStr < tripDateRange.start || dateStr > tripDateRange.end) return null;
+  }
+
+  const hasAllRequired = !!(type && vendor && booking_ref && start && end);
+  const flagged = !hasAllRequired;
+
+  return {
+    raw_email_id: emailId,
+    type,
+    vendor,
+    booking_ref,
+    start_datetime: start ?? new Date().toISOString(),
+    end_datetime: end ?? new Date().toISOString(),
+    price,
+    currency,
+    flagged_for_review: flagged,
+  };
 }

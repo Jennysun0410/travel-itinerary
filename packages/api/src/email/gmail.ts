@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import pool from '../db/client';
 import { encrypt, decrypt } from './encryption';
-import { enqueueEmailForParsing } from './parser';
+import { enqueueEmailForParsing, parseEmail, ParsedOrder } from './parser';
 
 const GMAIL_REDIRECT_URI = process.env.GOOGLE_GMAIL_REDIRECT_URI ?? process.env.GOOGLE_REDIRECT_URI?.replace('auth/google/callback', 'email/gmail/callback');
 
@@ -109,6 +109,42 @@ export async function scanGmailByDateRange(userId: string, from: string, to: str
   }
 
   return { imported, skipped };
+}
+
+export async function scanGmailForPreview(userId: string, from: string, to: string, tripDateRange?: { start: string; end: string }): Promise<ParsedOrder[]> {
+  const { rows } = await pool.query<{ access_token: string; refresh_token: string; token_expiry: Date }>(
+    `SELECT access_token, refresh_token, token_expiry FROM email_connections WHERE user_id = $1 AND provider = 'gmail'`,
+    [userId],
+  );
+  if (!rows.length) throw new Error('no_gmail_connection');
+
+  const conn = rows[0];
+  const auth = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+  );
+  auth.setCredentials({
+    access_token: decrypt(conn.access_token),
+    refresh_token: decrypt(conn.refresh_token),
+    expiry_date: conn.token_expiry.getTime(),
+  });
+
+  const gmail = google.gmail({ version: 'v1', auth });
+  const afterDate = from.replace(/-/g, '/');
+  const beforeDate = to.replace(/-/g, '/');
+  const q = `(from:(agoda.com OR booking.com OR airbnb.com OR klook.com OR trip.com OR evaair.com OR china-airlines.com OR flyscoot.com OR airasia.com OR tigerairtw.com OR flypeach.com) OR subject:(confirmation OR 確認 OR 預訂 OR 訂單 OR itinerary OR e-ticket OR booking)) after:${afterDate} before:${beforeDate}`;
+
+  const { data } = await gmail.users.messages.list({ userId: 'me', q, maxResults: 50 });
+
+  const results: ParsedOrder[] = [];
+  for (const msg of data.messages ?? []) {
+    const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
+    const raw = extractEmailText(full.data);
+    const order = parseEmail(msg.id!, raw, tripDateRange);
+    if (order) results.push(order);
+  }
+
+  return results;
 }
 
 export async function handleGmailPushNotification(userId: string): Promise<void> {

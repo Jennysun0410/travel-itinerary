@@ -6,6 +6,18 @@ import type { EmailConnection, Order, OrderType } from '@travel/shared';
 
 interface Props { params: { id: string } }
 
+interface ParsedOrder {
+  raw_email_id: string;
+  type: 'flight' | 'accommodation' | 'activity';
+  vendor: string;
+  booking_ref: string;
+  start_datetime: string;
+  end_datetime: string;
+  price: number;
+  currency: string;
+  flagged_for_review: boolean;
+}
+
 const TYPES: Array<{ label: string; value: string }> = [
   { label: 'All', value: '' },
   { label: 'Flights', value: 'flight' },
@@ -27,6 +39,10 @@ export default function OrdersPage({ params }: Props) {
   const [scanTo, setScanTo] = useState('');
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<string | null>(null);
+  const [previewOrders, setPreviewOrders] = useState<ParsedOrder[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+  const [previewDone, setPreviewDone] = useState(false);
 
   const loadOrders = (type = filter) => {
     const qs = type ? `?type=${type}` : '';
@@ -54,17 +70,57 @@ export default function OrdersPage({ params }: Props) {
     e.preventDefault();
     setScanning(true);
     setScanResult(null);
+    setPreviewOrders([]);
+    setSelectedIds(new Set());
+    setPreviewDone(false);
     try {
-      const result = await apiFetch<{ imported: number; skipped: number }>('/email/gmail/scan', {
+      const results = await apiFetch<ParsedOrder[]>('/email/gmail/preview', {
         method: 'POST',
         body: JSON.stringify({ from: scanFrom, to: scanTo, trip_id: params.id }),
       });
-      setScanResult(`已匯入 ${result.imported} 筆訂單${result.skipped > 0 ? `，略過 ${result.skipped} 筆重複` : ''}`);
+      setPreviewOrders(results);
+      setSelectedIds(new Set(results.map(o => o.raw_email_id)));
+      setPreviewDone(true);
+    } catch (err) {
+      setScanResult(`掃描失敗：${(err as Error).message}`);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleImport = async () => {
+    setImporting(true);
+    try {
+      const selected = previewOrders.filter(o => selectedIds.has(o.raw_email_id));
+      const result = await apiFetch<{ imported: number }>('/email/gmail/import', {
+        method: 'POST',
+        body: JSON.stringify({ trip_id: params.id, orders: selected }),
+      });
+      setScanResult(`已匯入 ${result.imported} 筆訂單`);
+      setPreviewOrders([]);
+      setSelectedIds(new Set());
+      setPreviewDone(false);
       loadOrders();
     } catch (err) {
       setScanResult(`匯入失敗：${(err as Error).message}`);
     } finally {
-      setScanning(false);
+      setImporting(false);
+    }
+  };
+
+  const toggleId = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === previewOrders.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(previewOrders.map(o => o.raw_email_id)));
     }
   };
 
@@ -86,12 +142,20 @@ export default function OrdersPage({ params }: Props) {
     setOrders(o => o.map(x => x.id === id ? { ...x, flaggedForReview: false } : x));
   };
 
+  const resetEmailPanel = () => {
+    setAddMode(null);
+    setScanResult(null);
+    setPreviewOrders([]);
+    setSelectedIds(new Set());
+    setPreviewDone(false);
+  };
+
   return (
     <main style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>Orders</h2>
         <button
-          onClick={() => { setAddMode(null); setScanResult(null); }}
+          onClick={resetEmailPanel}
           style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
         >
           + Add Order
@@ -112,17 +176,64 @@ export default function OrdersPage({ params }: Props) {
           {!gmailConnected ? (
             <p style={{ margin: 0 }}>尚未連結 Gmail — <a href="/settings/email" onClick={() => sessionStorage.setItem('gmailReturnUrl', window.location.pathname)} style={{ color: '#0070f3' }}>前往設定</a></p>
           ) : (
-            <form onSubmit={handleScan} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <label style={{ flex: 1, fontSize: 13 }}>開始日期<input type="date" value={scanFrom} onChange={e => setScanFrom(e.target.value)} required style={{ display: 'block', padding: 8, borderRadius: 4, border: '1px solid #ccc', width: '100%', marginTop: 4 }} /></label>
-                <label style={{ flex: 1, fontSize: 13 }}>結束日期<input type="date" value={scanTo} onChange={e => setScanTo(e.target.value)} required style={{ display: 'block', padding: 8, borderRadius: 4, border: '1px solid #ccc', width: '100%', marginTop: 4 }} /></label>
-              </div>
-              {scanResult && <p style={{ margin: 0, fontSize: 13, color: scanResult.includes('失敗') ? 'red' : '#0a7c3e' }}>{scanResult}</p>}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="submit" disabled={scanning} style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', opacity: scanning ? 0.6 : 1 }}>{scanning ? '匯入中…' : '開始匯入'}</button>
-                <button type="button" onClick={() => { setAddMode(null); setScanResult(null); }} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer' }}>取消</button>
-              </div>
-            </form>
+            <>
+              <form onSubmit={handleScan} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <label style={{ flex: 1, fontSize: 13 }}>開始日期<input type="date" value={scanFrom} onChange={e => setScanFrom(e.target.value)} required style={{ display: 'block', padding: 8, borderRadius: 4, border: '1px solid #ccc', width: '100%', marginTop: 4 }} /></label>
+                  <label style={{ flex: 1, fontSize: 13 }}>結束日期<input type="date" value={scanTo} onChange={e => setScanTo(e.target.value)} required style={{ display: 'block', padding: 8, borderRadius: 4, border: '1px solid #ccc', width: '100%', marginTop: 4 }} /></label>
+                </div>
+                {scanResult && <p style={{ margin: 0, fontSize: 13, color: scanResult.includes('失敗') ? 'red' : '#0a7c3e' }}>{scanResult}</p>}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="submit" disabled={scanning} style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', opacity: scanning ? 0.6 : 1 }}>{scanning ? '掃描中…' : '開始掃描'}</button>
+                  <button type="button" onClick={resetEmailPanel} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer' }}>取消</button>
+                </div>
+              </form>
+
+              {/* Preview list */}
+              {previewDone && previewOrders.length === 0 && (
+                <p style={{ marginTop: 12, fontSize: 13, color: '#666' }}>未找到符合條件的訂單</p>
+              )}
+              {previewOrders.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: '#333' }}>找到 {previewOrders.length} 筆訂單，請勾選要加入的項目：</span>
+                    <button type="button" onClick={toggleAll} style={{ fontSize: 12, padding: '4px 10px', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer', background: '#fff' }}>
+                      {selectedIds.size === previewOrders.length ? '取消全選' : '全選'}
+                    </button>
+                  </div>
+                  {previewOrders.map(order => (
+                    <div key={order.raw_email_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #eee' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(order.raw_email_id)}
+                        onChange={() => toggleId(order.raw_email_id)}
+                        style={{ flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, fontSize: 13 }}>
+                        <span style={{ fontWeight: 600 }}>{order.vendor || '(未知供應商)'}</span>
+                        {order.flagged_for_review && <span style={{ marginLeft: 6, background: '#f59e0b', color: 'white', padding: '1px 6px', borderRadius: 8, fontSize: 11 }}>待確認</span>}
+                        <span style={{ marginLeft: 8, color: '#666' }}>{order.type}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#666', textAlign: 'right' }}>
+                        <div>{order.start_datetime.slice(0, 10)}</div>
+                        <div>{order.price} {order.currency}</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={handleImport}
+                      disabled={importing || selectedIds.size === 0}
+                      style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', opacity: (importing || selectedIds.size === 0) ? 0.6 : 1 }}
+                    >
+                      {importing ? '匯入中…' : `確認匯入 (${selectedIds.size} 筆)`}
+                    </button>
+                    <button type="button" onClick={resetEmailPanel} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: 6, cursor: 'pointer' }}>取消</button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

@@ -7,6 +7,7 @@ import ordersRouter from './routes/orders';
 import timelineRouter from './routes/timeline';
 import emailRouter from './routes/email';
 import emailScanRouter from './routes/email-scan';
+import emailPreviewRouter from './routes/email-preview';
 import usersRouter from './routes/users';
 
 const app = express();
@@ -19,6 +20,7 @@ app.use('/orders', ordersRouter);
 app.use('/timeline', timelineRouter);
 app.use('/email', emailRouter);
 app.use('/email', emailScanRouter);
+app.use('/email', emailPreviewRouter);
 app.use('/users', usersRouter);
 
 app.get('/trips/:tripId', async (req, res) => {
