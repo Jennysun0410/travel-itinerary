@@ -495,10 +495,67 @@ interface AddOrdersModalProps {
 }
 
 function AddOrdersModal({ tripId, gmailConnected, initialOrders, onClose }: AddOrdersModalProps) {
-  const [modalMode, setModalMode] = useState<'list' | 'import'>('list');
   const [localOrders, setLocalOrders] = useState<Order[]>(initialOrders);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Order>>({});
+
+  // Inline import state
+  const [scanFrom, setScanFrom] = useState('');
+  const [scanTo, setScanTo] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [previewOrders, setPreviewOrders] = useState<ParsedOrder[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 5, border: '1px solid #d1d5db', fontSize: 13 };
+
+  const handleScan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setScanError(null);
+    setScanning(true);
+    setPreviewOrders(null);
+    try {
+      const results = await apiFetch<ParsedOrder[]>('/email/gmail/preview', {
+        method: 'POST',
+        body: JSON.stringify({ from: scanFrom, to: scanTo, trip_id: tripId }),
+      });
+      setPreviewOrders(results);
+      setSelectedIds(new Set(results.map(o => o.raw_email_id)));
+    } catch (err) {
+      setScanError((err as Error).message);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!previewOrders) return;
+    const selected = previewOrders.filter(o => selectedIds.has(o.raw_email_id));
+    setImporting(true);
+    try {
+      await apiFetch<{ imported: number }>('/email/gmail/import', {
+        method: 'POST',
+        body: JSON.stringify({ trip_id: tripId, orders: selected }),
+      });
+      onClose();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const toggleId = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const toggleAll = () => {
+    if (!previewOrders) return;
+    setSelectedIds(selectedIds.size === previewOrders.length ? new Set() : new Set(previewOrders.map(o => o.raw_email_id)));
+  };
 
   const handleSaveEdit = async () => {
     if (!editingId) return;
@@ -520,91 +577,155 @@ function AddOrdersModal({ tripId, gmailConnected, initialOrders, onClose }: AddO
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: '28px 32px', width: '92%', maxWidth: 600, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.24)' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: '28px 32px', width: '92%', maxWidth: 680, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.24)' }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Add orders</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#6b7280', lineHeight: 1, padding: 4 }}>×</button>
         </div>
 
-        {/* Inner card */}
-        <div style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 10, padding: '20px 20px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* List mode */}
-          {modalMode === 'list' && (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                <button onClick={() => setModalMode('import')}
-                  style={{ padding: '8px 18px', background: '#374151', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                  import from mail
-                </button>
+          {/* ── Import from mail section ── */}
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 20px' }}>
+            {!gmailConnected && (
+              <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: '10px 12px', fontSize: 13, marginBottom: 12 }}>
+                尚未連結 Gmail —{' '}
+                <a href="/settings/email" style={{ color: '#0070f3' }}>前往設定</a>
               </div>
+            )}
+            <form onSubmit={handleScan}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+                <label style={{ flex: 1, fontSize: 13, color: '#374151' }}>
+                  開始日期
+                  <input type="date" value={scanFrom} onChange={e => setScanFrom(e.target.value)} required
+                    style={{ display: 'block', marginTop: 6, width: '100%', ...inp }} />
+                </label>
+                <label style={{ flex: 1, fontSize: 13, color: '#374151' }}>
+                  結束日期
+                  <input type="date" value={scanTo} onChange={e => setScanTo(e.target.value)} required
+                    style={{ display: 'block', marginTop: 6, width: '100%', ...inp }} />
+                </label>
+              </div>
+              {scanError && <p style={{ margin: '0 0 10px', fontSize: 13, color: '#dc2626' }}>{scanError}</p>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="submit" disabled={!gmailConnected || scanning}
+                  style={{ padding: '9px 22px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 7, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: (!gmailConnected || scanning) ? 0.6 : 1 }}>
+                  {scanning ? '掃描中…' : '開始掃描'}
+                </button>
+                {previewOrders !== null && (
+                  <button type="button" onClick={() => { setPreviewOrders(null); setSelectedIds(new Set()); setScanError(null); }}
+                    style={{ padding: '9px 16px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 14, cursor: 'pointer', background: '#fff' }}>
+                    取消
+                  </button>
+                )}
+              </div>
+            </form>
 
-              {localOrders.length === 0 && (
-                <p style={{ color: '#9ca3af', fontSize: 14 }}>No orders yet.</p>
-              )}
-
-              {localOrders.map(order => (
-                <div key={order.id} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '14px 16px', marginBottom: 10 }}>
-                  {editingId === order.id ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <input placeholder="Vendor" defaultValue={order.vendor}
-                        onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))}
-                        style={{ padding: '7px 10px', borderRadius: 5, border: '1px solid #d1d5db', fontSize: 13 }} />
-                      <input placeholder="Booking ref" defaultValue={order.bookingRef}
-                        onChange={e => setEditForm(f => ({ ...f, bookingRef: e.target.value }))}
-                        style={{ padding: '7px 10px', borderRadius: 5, border: '1px solid #d1d5db', fontSize: 13 }} />
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={handleSaveEdit}
-                          style={{ padding: '6px 14px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>
-                          Save
-                        </button>
-                        <button onClick={() => setEditingId(null)}
-                          style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>
-                          Cancel
-                        </button>
-                      </div>
+            {/* Scan results */}
+            {previewOrders !== null && (
+              <div style={{ marginTop: 16 }}>
+                {previewOrders.length === 0 ? (
+                  <p style={{ color: '#6b7280', fontSize: 14, margin: 0 }}>未找到符合條件的訂單確認信</p>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, color: '#374151' }}>
+                        找到 {previewOrders.length} 筆訂單，請勾選要加入的項目：
+                      </span>
+                      <button onClick={toggleAll}
+                        style={{ fontSize: 12, padding: '3px 12px', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', background: '#fff' }}>
+                        {selectedIds.size === previewOrders.length ? '取消全選' : '全選'}
+                      </button>
                     </div>
-                  ) : (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <strong>{order.vendor}</strong>
-                        {order.flaggedForReview && (
-                          <span onClick={() => handleConfirm(order.id)}
-                            style={{ marginLeft: 8, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 10, fontSize: 12, cursor: 'pointer' }}>
-                            待確認
-                          </span>
-                        )}
-                        {' — '}<em style={{ color: '#6b7280' }}>{order.type}</em>
-                        <p style={{ margin: '3px 0', color: '#6b7280', fontSize: 13 }}>Ref: {order.bookingRef || '—'} | {order.price} {order.currency}</p>
-                        <p style={{ margin: '3px 0', fontSize: 13 }}>{order.startDatetime?.slice(0, 10)} – {order.endDatetime?.slice(0, 10)}</p>
-                        <p style={{ margin: '3px 0', fontSize: 12, color: '#9ca3af' }}>Added by {order.createdByName}</p>
-                      </div>
-                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => { setEditingId(order.id); setEditForm({}); }}
-                          style={{ padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: 5, cursor: 'pointer', fontSize: 12 }}>
-                          Edit
-                        </button>
-                        <button onClick={() => handleDelete(order.id)}
-                          style={{ padding: '4px 10px', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 5, cursor: 'pointer', fontSize: 12 }}>
-                          刪除
-                        </button>
-                      </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                      {previewOrders.map(order => (
+                        <label key={order.raw_email_id}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 7, cursor: 'pointer', background: selectedIds.has(order.raw_email_id) ? '#f0f7ff' : '#fff' }}>
+                          <input type="checkbox" checked={selectedIds.has(order.raw_email_id)} onChange={() => toggleId(order.raw_email_id)}
+                            style={{ width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 600, fontSize: 14 }}>{order.vendor || '(未知供應商)'}</span>
+                              <span style={{ fontSize: 11, background: '#e5e7eb', color: '#6b7280', padding: '1px 7px', borderRadius: 10 }}>{TYPE_LABEL[order.type] ?? order.type}</span>
+                              {order.flagged_for_review && <span style={{ fontSize: 11, background: '#fef3c7', color: '#92400e', padding: '1px 7px', borderRadius: 10 }}>待確認</span>}
+                            </div>
+                            <span style={{ fontSize: 12, color: '#6b7280' }}>{order.start_datetime.slice(0, 10)}{order.booking_ref ? ` · ${order.booking_ref}` : ''}</span>
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>{order.price.toLocaleString()} {order.currency}</span>
+                        </label>
+                      ))}
                     </div>
-                  )}
-                </div>
-              ))}
-            </>
-          )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={handleImport} disabled={selectedIds.size === 0 || importing}
+                        style={{ padding: '9px 22px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 7, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: (selectedIds.size === 0 || importing) ? 0.5 : 1 }}>
+                        {importing ? '加入中…' : `確認匯入 (${selectedIds.size} 筆)`}
+                      </button>
+                      <button onClick={() => { setPreviewOrders(null); setSelectedIds(new Set()); }}
+                        style={{ padding: '9px 16px', border: '1px solid #d1d5db', borderRadius: 7, fontSize: 14, cursor: 'pointer', background: '#fff' }}>
+                        取消
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
-          {/* Import mode */}
-          {modalMode === 'import' && (
-            <ImportFlow
-              tripId={tripId}
-              gmailConnected={gmailConnected}
-              onCancel={() => setModalMode('list')}
-              onClose={onClose}
-            />
+          {/* ── Existing orders ── */}
+          {localOrders.length === 0 ? (
+            <p style={{ color: '#9ca3af', fontSize: 14, margin: 0 }}>No orders yet.</p>
+          ) : (
+            localOrders.map(order => (
+              <div key={order.id} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '14px 16px' }}>
+                {editingId === order.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input placeholder="Vendor" defaultValue={order.vendor}
+                      onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))}
+                      style={{ ...inp, width: '100%' }} />
+                    <input placeholder="Booking ref" defaultValue={order.bookingRef}
+                      onChange={e => setEditForm(f => ({ ...f, bookingRef: e.target.value }))}
+                      style={{ ...inp, width: '100%' }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={handleSaveEdit}
+                        style={{ padding: '6px 14px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>
+                        Save
+                      </button>
+                      <button onClick={() => setEditingId(null)}
+                        style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <strong>{order.vendor}</strong>
+                      {order.flaggedForReview && (
+                        <span onClick={() => handleConfirm(order.id)}
+                          style={{ marginLeft: 8, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 10, fontSize: 12, cursor: 'pointer' }}>
+                          待確認
+                        </span>
+                      )}
+                      {' — '}<em style={{ color: '#6b7280' }}>{order.type}</em>
+                      <p style={{ margin: '3px 0', color: '#6b7280', fontSize: 13 }}>Ref: {order.bookingRef || '—'} | {order.price} {order.currency}</p>
+                      <p style={{ margin: '3px 0', fontSize: 13 }}>{order.startDatetime?.slice(0, 10)} – {order.endDatetime?.slice(0, 10)}</p>
+                      <p style={{ margin: '3px 0', fontSize: 12, color: '#9ca3af' }}>Added by {order.createdByName}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => { setEditingId(order.id); setEditForm({}); }}
+                        style={{ padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: 5, cursor: 'pointer', fontSize: 12 }}>
+                        Edit
+                      </button>
+                      <button onClick={() => handleDelete(order.id)}
+                        style={{ padding: '4px 10px', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 5, cursor: 'pointer', fontSize: 12 }}>
+                        刪除
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </div>
       </div>
