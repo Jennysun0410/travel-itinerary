@@ -66,6 +66,19 @@ export default function OrdersPage({ params }: Props) {
     setForm({ ...emptyForm });
   };
 
+  const loadDemo = () => {
+    const demo: ParsedOrder[] = [
+      { raw_email_id: 'demo-1', type: 'flight', vendor: 'EVA Air', booking_ref: 'BR801TW', start_datetime: '2026-06-10T08:30:00+08:00', end_datetime: '2026-06-10T13:45:00+09:00', price: 8500, currency: 'TWD', flagged_for_review: false },
+      { raw_email_id: 'demo-2', type: 'accommodation', vendor: 'Agoda / 台北君悅酒店', booking_ref: 'AGD-990321', start_datetime: '2026-06-10T15:00:00+08:00', end_datetime: '2026-06-12T11:00:00+08:00', price: 6800, currency: 'TWD', flagged_for_review: false },
+      { raw_email_id: 'demo-3', type: 'activity', vendor: 'Klook', booking_ref: '', start_datetime: '2026-06-11T10:00:00+08:00', end_datetime: '2026-06-11T12:00:00+08:00', price: 650, currency: 'TWD', flagged_for_review: true },
+    ];
+    setPreviewOrders(demo);
+    setSelectedIds(new Set(demo.map(o => o.raw_email_id)));
+    setPreviewDone(true);
+    setScanResult(null);
+    setAddMode('email');
+  };
+
   const handleScan = async (e: React.FormEvent) => {
     e.preventDefault();
     setScanning(true);
@@ -154,12 +167,15 @@ export default function OrdersPage({ params }: Props) {
     <main style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>Orders</h2>
-        <button
-          onClick={resetEmailPanel}
-          style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-        >
-          + Add Order
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={loadDemo} style={{ padding: '8px 16px', background: '#fff', color: '#666', border: '1px dashed #ccc', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>示範預覽</button>
+          <button
+            onClick={resetEmailPanel}
+            style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+          >
+            + Add Order
+          </button>
+        </div>
       </div>
 
       {/* Mode selector */}
