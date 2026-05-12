@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../../../lib/api';
-import type { EmailConnection, Order, OrderType } from '@travel/shared';
+import type { EmailConnection, Order } from '@travel/shared';
 
 interface Props { params: { id: string } }
 
@@ -26,7 +26,6 @@ const TYPES: Array<{ label: string; value: string }> = [
 ];
 
 const TYPE_LABEL: Record<string, string> = { flight: '機票', accommodation: '住宿', activity: '活動' };
-const emptyForm = { type: 'activity' as OrderType, vendor: '', booking_ref: '', start_datetime: '', end_datetime: '', price: 0, currency: 'USD' };
 const STEPS = ['選擇日期', '掃描信箱', '確認訂單', '加入行程', '加入成功'];
 
 // ── Illustrations ─────────────────────────────────────────────────────────────
@@ -119,11 +118,11 @@ function IllustSuccess({ count }: { count: number }) {
   );
 }
 
-// ── Step Bar ──────────────────────────────────────────────────────────────────
+// ── StepBar ───────────────────────────────────────────────────────────────────
 
 function StepBar({ current }: { current: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 24 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 20 }}>
       {STEPS.map((label, i) => {
         const done = i < current;
         const active = i === current;
@@ -150,27 +149,23 @@ function StepBar({ current }: { current: number }) {
   );
 }
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
+// ── ImportFlow (5-step flow, no outer overlay) ────────────────────────────────
 
-interface ModalProps {
+interface ImportFlowProps {
   tripId: string;
   gmailConnected: boolean;
-  isDemo?: boolean;
-  demoOrders?: ParsedOrder[];
-  onClose: () => void;
-  onImported: () => void;
+  onCancel: () => void;  // Cancel or Back → return to list mode
+  onClose: () => void;   // 完成 → close modal entirely
 }
 
-const btnPrimary: React.CSSProperties = { flex: 1, padding: '10px 0', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' };
-const btnSecondary: React.CSSProperties = { padding: '10px 18px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, cursor: 'pointer', background: '#fff', color: '#374151' };
-const btnBack: React.CSSProperties = { padding: '10px 18px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, cursor: 'pointer', background: '#fff', color: '#6b7280', display: 'flex', alignItems: 'center', gap: 4 };
-
-function ImportModal({ tripId, gmailConnected, isDemo = false, demoOrders = [], onClose, onImported }: ModalProps) {
+function ImportFlow({ tripId, gmailConnected, onCancel, onClose }: ImportFlowProps) {
   const [step, setStep] = useState(0);
   const [scanFrom, setScanFrom] = useState('');
   const [scanTo, setScanTo] = useState('');
   const [previewOrders, setPreviewOrders] = useState<ParsedOrder[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editRowForm, setEditRowForm] = useState<Partial<ParsedOrder>>({});
   const [importing, setImporting] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -179,13 +174,6 @@ function ImportModal({ tripId, gmailConnected, isDemo = false, demoOrders = [], 
     e.preventDefault();
     setError(null);
     setStep(1);
-    if (isDemo) {
-      await new Promise(r => setTimeout(r, 1400));
-      setPreviewOrders(demoOrders);
-      setSelectedIds(new Set(demoOrders.map(o => o.raw_email_id)));
-      setStep(2);
-      return;
-    }
     try {
       const results = await apiFetch<ParsedOrder[]>('/email/gmail/preview', {
         method: 'POST',
@@ -205,13 +193,6 @@ function ImportModal({ tripId, gmailConnected, isDemo = false, demoOrders = [], 
     setImporting(true);
     setError(null);
     setStep(3);
-    if (isDemo) {
-      await new Promise(r => setTimeout(r, 1400));
-      setImportedCount(selected.length);
-      setStep(4);
-      setImporting(false);
-      return;
-    }
     try {
       const result = await apiFetch<{ imported: number }>('/email/gmail/import', {
         method: 'POST',
@@ -219,7 +200,6 @@ function ImportModal({ tripId, gmailConnected, isDemo = false, demoOrders = [], 
       });
       setImportedCount(result.imported);
       setStep(4);
-      onImported();
     } catch (err) {
       setError((err as Error).message);
       setStep(2);
@@ -238,151 +218,394 @@ function ImportModal({ tripId, gmailConnected, isDemo = false, demoOrders = [], 
     selectedIds.size === previewOrders.length ? new Set() : new Set(previewOrders.map(o => o.raw_email_id))
   );
 
+  const startEditRow = (order: ParsedOrder) => {
+    setEditingRowId(order.raw_email_id);
+    setEditRowForm({
+      vendor: order.vendor,
+      type: order.type,
+      booking_ref: order.booking_ref,
+      start_datetime: order.start_datetime.slice(0, 16),
+      end_datetime: order.end_datetime.slice(0, 16),
+      price: order.price,
+      currency: order.currency,
+    });
+  };
+
+  const saveEditRow = (id: string) => {
+    setPreviewOrders(orders => orders.map(o => o.raw_email_id !== id ? o : {
+      ...o,
+      vendor: editRowForm.vendor ?? o.vendor,
+      type: (editRowForm.type as ParsedOrder['type']) ?? o.type,
+      booking_ref: editRowForm.booking_ref ?? o.booking_ref,
+      start_datetime: editRowForm.start_datetime ?? o.start_datetime,
+      end_datetime: editRowForm.end_datetime ?? o.end_datetime,
+      price: Number(editRowForm.price ?? o.price),
+      currency: editRowForm.currency ?? o.currency,
+    }));
+    setEditingRowId(null);
+  };
+
+  const removeRow = (id: string) => {
+    setPreviewOrders(orders => orders.filter(o => o.raw_email_id !== id));
+    setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+  };
+
+  const inp: React.CSSProperties = { padding: '6px 8px', borderRadius: 5, border: '1px solid #d1d5db', fontSize: 13, width: '100%' };
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: '92%', maxWidth: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.22)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 16 }}>從信箱匯入訂單{isDemo ? '（示範）' : ''}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280', lineHeight: 1 }}>×</button>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <StepBar current={step} />
+      <div style={{ overflowY: 'auto' }}>
+
+        {/* Step 0: 選擇日期 */}
+        {step === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <IllustCalendar />
+            <form onSubmit={handleScan} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {!gmailConnected && (
+                <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: 12, fontSize: 13 }}>
+                  尚未連結 Gmail —{' '}
+                  <a href="/settings/email" style={{ color: '#0070f3' }}>前往設定</a>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 12 }}>
+                <label style={{ flex: 1, fontSize: 13, color: '#374151' }}>
+                  開始日期
+                  <input type="date" value={scanFrom} onChange={e => setScanFrom(e.target.value)} required
+                    style={{ display: 'block', marginTop: 6, ...inp }} />
+                </label>
+                <label style={{ flex: 1, fontSize: 13, color: '#374151' }}>
+                  結束日期
+                  <input type="date" value={scanTo} onChange={e => setScanTo(e.target.value)} required
+                    style={{ display: 'block', marginTop: 6, ...inp }} />
+                </label>
+              </div>
+              {error && <p style={{ margin: 0, fontSize: 13, color: '#dc2626' }}>{error}</p>}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" onClick={onCancel}
+                  style={{ padding: '10px 18px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, cursor: 'pointer', background: '#fff' }}>
+                  取消
+                </button>
+                <button type="submit" disabled={!gmailConnected}
+                  style={{ flex: 1, padding: '10px 0', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: !gmailConnected ? 0.5 : 1 }}>
+                  開始掃描 →
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Step 1: 掃描信箱 */}
+        {step === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '16px 0' }}>
+            <IllustEmail />
+            <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTopColor: '#0070f3', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>正在掃描信箱中的訂單確認信…</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {/* Step 2: 確認訂單 */}
+        {step === 2 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {previewOrders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: '#6b7280', fontSize: 14 }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
+                未找到符合條件的訂單確認信
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, color: '#6b7280' }}>找到 {previewOrders.length} 筆，已選 {selectedIds.size} 筆</span>
+                  <button onClick={toggleAll}
+                    style={{ fontSize: 12, padding: '4px 12px', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', background: '#fff' }}>
+                    {selectedIds.size === previewOrders.length ? '取消全選' : '全選'}
+                  </button>
+                </div>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                  {previewOrders.map((order, i) => (
+                    <div key={order.raw_email_id} style={{
+                      borderTop: i > 0 ? '1px solid #f3f4f6' : undefined,
+                      background: editingRowId === order.raw_email_id ? '#f8fafc' : selectedIds.has(order.raw_email_id) ? '#f0f7ff' : '#fff',
+                    }}>
+                      {editingRowId === order.raw_email_id ? (
+                        /* ── Edit mode ── */
+                        <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input
+                              placeholder="供應商"
+                              value={editRowForm.vendor ?? ''}
+                              onChange={e => setEditRowForm(f => ({ ...f, vendor: e.target.value }))}
+                              style={{ ...inp, flex: 2 }}
+                            />
+                            <select
+                              value={editRowForm.type ?? order.type}
+                              onChange={e => setEditRowForm(f => ({ ...f, type: e.target.value as ParsedOrder['type'] }))}
+                              style={{ ...inp, flex: 1 }}
+                            >
+                              <option value="flight">機票</option>
+                              <option value="accommodation">住宿</option>
+                              <option value="activity">活動</option>
+                            </select>
+                          </div>
+                          <input
+                            placeholder="訂單編號"
+                            value={editRowForm.booking_ref ?? ''}
+                            onChange={e => setEditRowForm(f => ({ ...f, booking_ref: e.target.value }))}
+                            style={inp}
+                          />
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <label style={{ flex: 1, fontSize: 12, color: '#6b7280' }}>
+                              開始時間
+                              <input type="datetime-local"
+                                value={editRowForm.start_datetime ?? ''}
+                                onChange={e => setEditRowForm(f => ({ ...f, start_datetime: e.target.value }))}
+                                style={{ display: 'block', marginTop: 2, ...inp }}
+                              />
+                            </label>
+                            <label style={{ flex: 1, fontSize: 12, color: '#6b7280' }}>
+                              結束時間
+                              <input type="datetime-local"
+                                value={editRowForm.end_datetime ?? ''}
+                                onChange={e => setEditRowForm(f => ({ ...f, end_datetime: e.target.value }))}
+                                style={{ display: 'block', marginTop: 2, ...inp }}
+                              />
+                            </label>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input
+                              type="number"
+                              placeholder="價格"
+                              value={editRowForm.price ?? ''}
+                              onChange={e => setEditRowForm(f => ({ ...f, price: Number(e.target.value) }))}
+                              style={{ ...inp, flex: 2 }}
+                            />
+                            <input
+                              placeholder="幣別"
+                              value={editRowForm.currency ?? ''}
+                              onChange={e => setEditRowForm(f => ({ ...f, currency: e.target.value }))}
+                              style={{ ...inp, flex: 1 }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={() => saveEditRow(order.raw_email_id)}
+                              style={{ padding: '6px 18px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
+                              儲存
+                            </button>
+                            <button onClick={() => setEditingRowId(null)}
+                              style={{ padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 13, cursor: 'pointer', background: '#fff' }}>
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* ── Display mode ── */
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px' }}>
+                          <input type="checkbox" checked={selectedIds.has(order.raw_email_id)} onChange={() => toggleId(order.raw_email_id)}
+                            style={{ flexShrink: 0, width: 16, height: 16, cursor: 'pointer' }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 600, fontSize: 14 }}>{order.vendor || '(未知供應商)'}</span>
+                              <span style={{ fontSize: 11, background: '#e5e7eb', color: '#6b7280', padding: '1px 7px', borderRadius: 10 }}>{TYPE_LABEL[order.type] ?? order.type}</span>
+                              {order.flagged_for_review && <span style={{ fontSize: 11, background: '#fef3c7', color: '#92400e', padding: '1px 7px', borderRadius: 10 }}>待確認</span>}
+                            </div>
+                            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>
+                              {order.start_datetime.slice(0, 10)}{order.booking_ref ? ` · ${order.booking_ref}` : ''}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
+                            {order.price.toLocaleString()} {order.currency}
+                          </div>
+                          <button onClick={() => startEditRow(order)}
+                            style={{ flexShrink: 0, padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 5, fontSize: 12, cursor: 'pointer', background: '#fff', color: '#374151' }}
+                            title="編輯">
+                            ✏
+                          </button>
+                          <button onClick={() => removeRow(order.raw_email_id)}
+                            style={{ flexShrink: 0, padding: '4px 8px', border: '1px solid #fecaca', borderRadius: 5, fontSize: 12, cursor: 'pointer', background: '#fff', color: '#dc2626' }}
+                            title="移除">
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            {error && <p style={{ margin: 0, fontSize: 13, color: '#dc2626' }}>{error}</p>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <button onClick={onCancel}
+                style={{ padding: '10px 18px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, cursor: 'pointer', background: '#fff', color: '#6b7280' }}>
+                ← 返回
+              </button>
+              {previewOrders.length > 0 ? (
+                <button onClick={handleImport} disabled={selectedIds.size === 0}
+                  style={{ flex: 1, padding: '10px 0', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: selectedIds.size === 0 ? 0.5 : 1 }}>
+                  加入行程 ({selectedIds.size} 筆)
+                </button>
+              ) : (
+                <button onClick={onCancel}
+                  style={{ flex: 1, padding: '10px 0', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                  關閉
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: 加入行程 (loading) */}
+        {step === 3 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '12px 0' }}>
+            <IllustAdding />
+            <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTopColor: '#10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>正在將訂單加入行程中…</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {/* Step 4: 加入成功 */}
+        {step === 4 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '12px 0' }}>
+            <IllustSuccess count={importedCount} />
+            <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#065f46' }}>加入成功！</p>
+            <p style={{ margin: 0, fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 1.6 }}>
+              已新增 {importedCount} 筆訂單<br/>
+              <span style={{ color: '#374151', fontWeight: 500 }}>訂單會出現在你的行程中</span>
+            </p>
+            <button onClick={onClose}
+              style={{ marginTop: 12, padding: '11px 44px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              完成
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+// ── AddOrdersModal ─────────────────────────────────────────────────────────────
+
+interface AddOrdersModalProps {
+  tripId: string;
+  gmailConnected: boolean;
+  initialOrders: Order[];
+  onClose: () => void;
+}
+
+function AddOrdersModal({ tripId, gmailConnected, initialOrders, onClose }: AddOrdersModalProps) {
+  const [modalMode, setModalMode] = useState<'list' | 'import'>('list');
+  const [localOrders, setLocalOrders] = useState<Order[]>(initialOrders);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Order>>({});
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    const updated = await apiFetch<Order>(`/orders/${editingId}`, { method: 'PATCH', body: JSON.stringify(editForm) });
+    setLocalOrders(o => o.map(x => x.id === editingId ? updated : x));
+    setEditingId(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('刪除此訂單？')) return;
+    await apiFetch(`/orders/${id}`, { method: 'DELETE' });
+    setLocalOrders(o => o.filter(x => x.id !== id));
+  };
+
+  const handleConfirm = async (id: string) => {
+    await apiFetch(`/orders/${id}/confirm`, { method: 'PATCH' });
+    setLocalOrders(o => o.map(x => x.id === id ? { ...x, flaggedForReview: false } : x));
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: '28px 32px', width: '92%', maxWidth: 600, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.24)' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Add orders</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#6b7280', lineHeight: 1, padding: 4 }}>×</button>
         </div>
 
-        <StepBar current={step} />
+        {/* Inner card */}
+        <div style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 10, padding: '20px 20px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
 
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-
-          {/* Step 0: 選擇日期 */}
-          {step === 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <IllustCalendar />
-              <form onSubmit={handleScan} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {!gmailConnected && !isDemo && (
-                  <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, padding: 12, fontSize: 13 }}>
-                    尚未連結 Gmail —{' '}
-                    <a href="/settings/email" style={{ color: '#0070f3' }}>前往設定</a>
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <label style={{ flex: 1, fontSize: 13, color: '#374151' }}>
-                    開始日期
-                    <input type="date" value={isDemo ? '2026-06-01' : scanFrom}
-                      onChange={e => !isDemo && setScanFrom(e.target.value)}
-                      required={!isDemo}
-                      style={{ display: 'block', marginTop: 6, padding: '8px 10px', borderRadius: 6, border: '1px solid #d1d5db', width: '100%', fontSize: 14, background: isDemo ? '#f9fafb' : undefined }} />
-                  </label>
-                  <label style={{ flex: 1, fontSize: 13, color: '#374151' }}>
-                    結束日期
-                    <input type="date" value={isDemo ? '2026-06-30' : scanTo}
-                      onChange={e => !isDemo && setScanTo(e.target.value)}
-                      required={!isDemo}
-                      style={{ display: 'block', marginTop: 6, padding: '8px 10px', borderRadius: 6, border: '1px solid #d1d5db', width: '100%', fontSize: 14, background: isDemo ? '#f9fafb' : undefined }} />
-                  </label>
-                </div>
-                {isDemo && <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>示範模式：日期已預填，點擊下方按鈕繼續</p>}
-                {error && <p style={{ margin: 0, fontSize: 13, color: '#dc2626' }}>{error}</p>}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={onClose} style={btnSecondary}>取消</button>
-                  <button type="submit" disabled={!isDemo && !gmailConnected}
-                    style={{ ...btnPrimary, opacity: (!isDemo && !gmailConnected) ? 0.5 : 1 }}>
-                    開始掃描 →
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Step 1: 掃描信箱 */}
-          {step === 1 && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '16px 0' }}>
-              <IllustEmail />
-              <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTopColor: '#0070f3', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-              <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>正在掃描信箱中的訂單確認信…</p>
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            </div>
-          )}
-
-          {/* Step 2: 確認訂單 */}
-          {step === 2 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {previewOrders.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: '#6b7280', fontSize: 14 }}>
-                  <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
-                  未找到符合條件的訂單確認信
-                </div>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: '#6b7280' }}>找到 {previewOrders.length} 筆，已選 {selectedIds.size} 筆</span>
-                    <button onClick={toggleAll} style={{ fontSize: 12, padding: '4px 12px', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer', background: '#fff' }}>
-                      {selectedIds.size === previewOrders.length ? '取消全選' : '全選'}
-                    </button>
-                  </div>
-                  <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                    {previewOrders.map((order, i) => (
-                      <label key={order.raw_email_id} style={{
-                        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', cursor: 'pointer',
-                        borderTop: i > 0 ? '1px solid #f3f4f6' : undefined,
-                        background: selectedIds.has(order.raw_email_id) ? '#f0f7ff' : '#fff',
-                      }}>
-                        <input type="checkbox" checked={selectedIds.has(order.raw_email_id)} onChange={() => toggleId(order.raw_email_id)} style={{ flexShrink: 0, width: 16, height: 16 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: 600, fontSize: 14 }}>{order.vendor || '(未知供應商)'}</span>
-                            <span style={{ fontSize: 11, background: '#e5e7eb', color: '#6b7280', padding: '1px 7px', borderRadius: 10 }}>{TYPE_LABEL[order.type] ?? order.type}</span>
-                            {order.flagged_for_review && <span style={{ fontSize: 11, background: '#fef3c7', color: '#92400e', padding: '1px 7px', borderRadius: 10 }}>待確認</span>}
-                          </div>
-                          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>
-                            {order.start_datetime.slice(0, 10)}{order.booking_ref ? ` · ${order.booking_ref}` : ''}
-                          </div>
-                        </div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
-                          {order.price.toLocaleString()} {order.currency}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </>
-              )}
-              {error && <p style={{ margin: 0, fontSize: 13, color: '#dc2626' }}>{error}</p>}
-              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                <button onClick={() => setStep(0)} style={btnBack}>← 返回</button>
-                {previewOrders.length > 0 ? (
-                  <button onClick={handleImport} disabled={selectedIds.size === 0}
-                    style={{ ...btnPrimary, opacity: selectedIds.size === 0 ? 0.5 : 1 }}>
-                    加入行程 ({selectedIds.size} 筆)
-                  </button>
-                ) : (
-                  <button onClick={onClose} style={btnPrimary}>關閉</button>
-                )}
+          {/* List mode */}
+          {modalMode === 'list' && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                <button onClick={() => setModalMode('import')}
+                  style={{ padding: '8px 18px', background: '#374151', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                  import from mail
+                </button>
               </div>
-            </div>
+
+              {localOrders.length === 0 && (
+                <p style={{ color: '#9ca3af', fontSize: 14 }}>No orders yet.</p>
+              )}
+
+              {localOrders.map(order => (
+                <div key={order.id} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '14px 16px', marginBottom: 10 }}>
+                  {editingId === order.id ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <input placeholder="Vendor" defaultValue={order.vendor}
+                        onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))}
+                        style={{ padding: '7px 10px', borderRadius: 5, border: '1px solid #d1d5db', fontSize: 13 }} />
+                      <input placeholder="Booking ref" defaultValue={order.bookingRef}
+                        onChange={e => setEditForm(f => ({ ...f, bookingRef: e.target.value }))}
+                        style={{ padding: '7px 10px', borderRadius: 5, border: '1px solid #d1d5db', fontSize: 13 }} />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={handleSaveEdit}
+                          style={{ padding: '6px 14px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>
+                          Save
+                        </button>
+                        <button onClick={() => setEditingId(null)}
+                          style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <strong>{order.vendor}</strong>
+                        {order.flaggedForReview && (
+                          <span onClick={() => handleConfirm(order.id)}
+                            style={{ marginLeft: 8, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 10, fontSize: 12, cursor: 'pointer' }}>
+                            待確認
+                          </span>
+                        )}
+                        {' — '}<em style={{ color: '#6b7280' }}>{order.type}</em>
+                        <p style={{ margin: '3px 0', color: '#6b7280', fontSize: 13 }}>Ref: {order.bookingRef || '—'} | {order.price} {order.currency}</p>
+                        <p style={{ margin: '3px 0', fontSize: 13 }}>{order.startDatetime?.slice(0, 10)} – {order.endDatetime?.slice(0, 10)}</p>
+                        <p style={{ margin: '3px 0', fontSize: 12, color: '#9ca3af' }}>Added by {order.createdByName}</p>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => { setEditingId(order.id); setEditForm({}); }}
+                          style={{ padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: 5, cursor: 'pointer', fontSize: 12 }}>
+                          Edit
+                        </button>
+                        <button onClick={() => handleDelete(order.id)}
+                          style={{ padding: '4px 10px', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 5, cursor: 'pointer', fontSize: 12 }}>
+                          刪除
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </>
           )}
 
-          {/* Step 3: 加入行程（loading） */}
-          {step === 3 && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '12px 0' }}>
-              <IllustAdding />
-              <div style={{ width: 40, height: 40, border: '4px solid #e5e7eb', borderTopColor: '#10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-              <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>正在將訂單加入行程中…</p>
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            </div>
+          {/* Import mode */}
+          {modalMode === 'import' && (
+            <ImportFlow
+              tripId={tripId}
+              gmailConnected={gmailConnected}
+              onCancel={() => setModalMode('list')}
+              onClose={onClose}
+            />
           )}
-
-          {/* Step 4: 加入成功 */}
-          {step === 4 && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '12px 0' }}>
-              <IllustSuccess count={importedCount} />
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#065f46' }}>加入成功！</p>
-              <p style={{ margin: 0, fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 1.6 }}>
-                已新增 {importedCount} 筆訂單<br/>
-                <span style={{ color: '#374151', fontWeight: 500 }}>訂單會出現在你的行程中</span>
-              </p>
-              <button onClick={onClose}
-                style={{ marginTop: 12, padding: '11px 44px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                完成
-              </button>
-            </div>
-          )}
-
         </div>
       </div>
     </div>
@@ -395,13 +618,7 @@ export default function OrdersPage({ params }: Props) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState('');
   const [gmailConnected, setGmailConnected] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [isDemo, setIsDemo] = useState(false);
-  const [showManual, setShowManual] = useState(false);
-  const [form, setForm] = useState({ ...emptyForm });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Partial<Order>>({});
-  const [demoOrders, setDemoOrders] = useState<ParsedOrder[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const loadOrders = (type = filter) => {
     const qs = type ? `?type=${type}` : '';
@@ -415,67 +632,32 @@ export default function OrdersPage({ params }: Props) {
       .catch(console.error);
   }, [params.id]);
 
-  const openDemo = () => {
-    const demo: ParsedOrder[] = [
-      { raw_email_id: 'demo-1', type: 'flight', vendor: 'EVA Air', booking_ref: 'BR801TW', start_datetime: '2026-06-10T08:30:00+08:00', end_datetime: '2026-06-10T13:45:00+09:00', price: 8500, currency: 'TWD', flagged_for_review: false },
-      { raw_email_id: 'demo-2', type: 'accommodation', vendor: 'Agoda / 台北君悅酒店', booking_ref: 'AGD-990321', start_datetime: '2026-06-10T15:00:00+08:00', end_datetime: '2026-06-12T11:00:00+08:00', price: 6800, currency: 'TWD', flagged_for_review: false },
-      { raw_email_id: 'demo-3', type: 'activity', vendor: 'Klook 故宮導覽', booking_ref: '', start_datetime: '2026-06-11T10:00:00+08:00', end_datetime: '2026-06-11T12:00:00+08:00', price: 650, currency: 'TWD', flagged_for_review: true },
-    ];
-    setDemoOrders(demo);
-    setIsDemo(true);
-    setShowImportModal(true);
+  const closeModal = () => {
+    setShowAddModal(false);
+    loadOrders();
   };
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const order = await apiFetch<Order>(`/orders/trips/${params.id}/orders`, { method: 'POST', body: JSON.stringify(form) });
-    setOrders(o => [...o, order]);
-    setShowManual(false);
-    setForm({ ...emptyForm });
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingId) return;
-    const updated = await apiFetch<Order>(`/orders/${editingId}`, { method: 'PATCH', body: JSON.stringify(editForm) });
-    setOrders(o => o.map(x => x.id === editingId ? updated : x));
-    setEditingId(null);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this order?')) return;
-    await apiFetch(`/orders/${id}`, { method: 'DELETE' });
-    setOrders(o => o.filter(x => x.id !== id));
-  };
-
-  const handleConfirm = async (id: string) => {
-    await apiFetch(`/orders/${id}/confirm`, { method: 'PATCH' });
-    setOrders(o => o.map(x => x.id === id ? { ...x, flaggedForReview: false } : x));
-  };
-
-  const closeModal = () => { setShowImportModal(false); setIsDemo(false); setDemoOrders([]); };
 
   return (
     <main style={{ padding: 24 }}>
-      {showImportModal && (
-        <ImportModal
+      {showAddModal && (
+        <AddOrdersModal
           tripId={params.id}
           gmailConnected={gmailConnected}
-          isDemo={isDemo}
-          demoOrders={demoOrders}
+          initialOrders={orders}
           onClose={closeModal}
-          onImported={loadOrders}
         />
       )}
 
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h2 style={{ margin: 0 }}>Orders</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={openDemo} style={{ padding: '8px 14px', background: '#fff', color: '#6b7280', border: '1px dashed #d1d5db', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>示範預覽</button>
-          <button onClick={() => setShowImportModal(true)} style={{ padding: '8px 14px', border: '1px solid #0070f3', color: '#0070f3', background: '#fff', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>從信箱匯入</button>
-          <button onClick={() => setShowManual(v => !v)} style={{ padding: '8px 14px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>+ 手動新增</button>
-        </div>
+        <button onClick={() => setShowAddModal(true)}
+          style={{ padding: '8px 18px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+          + 加入行程
+        </button>
       </div>
 
+      {/* Type filter tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {TYPES.map(t => (
           <button key={t.value} onClick={() => { setFilter(t.value); loadOrders(t.value); }}
@@ -485,58 +667,28 @@ export default function OrdersPage({ params }: Props) {
         ))}
       </div>
 
-      {showManual && (
-        <form onSubmit={handleAdd} style={{ background: '#f9fafb', padding: 16, borderRadius: 8, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid #e5e7eb' }}>
-          <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as OrderType }))} style={{ padding: 8, borderRadius: 4, border: '1px solid #d1d5db' }}>
-            <option value="flight">Flight</option>
-            <option value="accommodation">Accommodation</option>
-            <option value="activity">Activity</option>
-          </select>
-          <input placeholder="Vendor" value={form.vendor} onChange={e => setForm(f => ({ ...f, vendor: e.target.value }))} required style={{ padding: 8, borderRadius: 4, border: '1px solid #d1d5db' }} />
-          <input placeholder="Booking ref" value={form.booking_ref} onChange={e => setForm(f => ({ ...f, booking_ref: e.target.value }))} style={{ padding: 8, borderRadius: 4, border: '1px solid #d1d5db' }} />
-          <label style={{ fontSize: 13 }}>Start<input type="datetime-local" value={form.start_datetime} onChange={e => setForm(f => ({ ...f, start_datetime: e.target.value }))} required style={{ display: 'block', padding: 8, borderRadius: 4, border: '1px solid #d1d5db', width: '100%', marginTop: 4 }} /></label>
-          <label style={{ fontSize: 13 }}>End<input type="datetime-local" value={form.end_datetime} onChange={e => setForm(f => ({ ...f, end_datetime: e.target.value }))} required style={{ display: 'block', padding: 8, borderRadius: 4, border: '1px solid #d1d5db', width: '100%', marginTop: 4 }} /></label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input placeholder="Price" type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} style={{ flex: 1, padding: 8, borderRadius: 4, border: '1px solid #d1d5db' }} />
-            <input placeholder="Currency" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} style={{ width: 80, padding: 8, borderRadius: 4, border: '1px solid #d1d5db' }} />
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" style={{ padding: '8px 16px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Save</button>
-            <button type="button" onClick={() => setShowManual(false)} style={{ padding: '8px 16px', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
-          </div>
-        </form>
-      )}
-
+      {/* Order list */}
       {orders.length === 0 && <p style={{ color: '#9ca3af' }}>No orders yet.</p>}
       {orders.map(order => (
         <div key={order.id} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginBottom: 10 }}>
-          {editingId === order.id ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <input placeholder="Vendor" defaultValue={order.vendor} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} style={{ padding: 6, borderRadius: 4, border: '1px solid #d1d5db' }} />
-              <input placeholder="Booking ref" defaultValue={order.bookingRef} onChange={e => setEditForm(f => ({ ...f, bookingRef: e.target.value }))} style={{ padding: 6, borderRadius: 4, border: '1px solid #d1d5db' }} />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={handleSaveEdit} style={{ padding: '6px 14px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Save</button>
-                <button onClick={() => setEditingId(null)} style={{ padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
-              </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div>
+              <strong>{order.vendor}</strong>
+              {order.flaggedForReview && (
+                <span style={{ marginLeft: 8, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 10, fontSize: 12 }}>待確認</span>
+              )}
+              {' — '}<em style={{ color: '#6b7280' }}>{order.type}</em>
+              <p style={{ margin: '3px 0', color: '#6b7280', fontSize: 13 }}>Ref: {order.bookingRef || '—'} | {order.price} {order.currency}</p>
+              <p style={{ margin: '3px 0', fontSize: 13 }}>{order.startDatetime?.slice(0, 10)} – {order.endDatetime?.slice(0, 10)}</p>
+              <p style={{ margin: '3px 0', fontSize: 12, color: '#9ca3af' }}>Added by {order.createdByName}</p>
             </div>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <div>
-                <strong>{order.vendor}</strong>
-                {order.flaggedForReview && (
-                  <span onClick={() => handleConfirm(order.id)} style={{ marginLeft: 8, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 10, fontSize: 12, cursor: 'pointer' }}>待確認</span>
-                )}
-                {' — '}<em style={{ color: '#6b7280' }}>{order.type}</em>
-                <p style={{ margin: '3px 0', color: '#6b7280', fontSize: 13 }}>Ref: {order.bookingRef || '—'} | {order.price} {order.currency}</p>
-                <p style={{ margin: '3px 0', fontSize: 13 }}>{order.startDatetime} – {order.endDatetime}</p>
-                <p style={{ margin: '3px 0', fontSize: 12, color: '#9ca3af' }}>Added by {order.createdByName}</p>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <button onClick={() => { setEditingId(order.id); setEditForm({}); }} style={{ padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', fontSize: 13 }}>Edit</button>
-                <button onClick={() => handleDelete(order.id)} style={{ padding: '4px 10px', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 4, cursor: 'pointer', fontSize: 13 }}>Delete</button>
-              </div>
+            <div>
+              <button onClick={() => setShowAddModal(true)}
+                style={{ padding: '4px 10px', border: '1px solid #d1d5db', borderRadius: 4, cursor: 'pointer', fontSize: 13 }}>
+                Edit
+              </button>
             </div>
-          )}
+          </div>
         </div>
       ))}
     </main>

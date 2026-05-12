@@ -79,7 +79,7 @@ router.get('/trips/:tripId/orders', async (req, res: Response) => {
      FROM orders o
      JOIN users u ON u.id = o.created_by
      WHERE o.trip_id = $1 ${typeFilter}
-     ORDER BY o.start_datetime ASC`,
+     ORDER BY o.created_at DESC`,
     params,
   );
   res.json(rows.map(mapOrder));
