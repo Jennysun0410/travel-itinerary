@@ -2,6 +2,65 @@
 
 import { getApiUrl } from '../lib/api';
 
+function Logo() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
+      {/* Icon */}
+      <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="logoGrad" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#22D3EE" />
+            <stop offset="100%" stopColor="#1E40AF" />
+          </linearGradient>
+        </defs>
+        {/* Circle background */}
+        <circle cx="28" cy="28" r="28" fill="url(#logoGrad)" />
+        {/* Route curve */}
+        <path
+          d="M14 36 C14 28, 22 20, 28 20 C34 20, 42 28, 42 20"
+          stroke="white"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          fill="none"
+          opacity="0.7"
+        />
+        {/* Waypoint dots */}
+        <circle cx="14" cy="36" r="4" fill="white" />
+        <circle cx="28" cy="20" r="4" fill="white" />
+        <circle cx="42" cy="20" r="4" fill="white" opacity="0.6" />
+        {/* Plane at end */}
+        <g transform="translate(38, 16) rotate(-35)">
+          <path d="M0 0 L6 3 L0 6 L1.5 3 Z" fill="white" />
+        </g>
+      </svg>
+
+      {/* Wordmark */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 }}>
+        <span style={{
+          fontFamily: 'Georgia, serif',
+          fontSize: '1.6rem',
+          fontWeight: 700,
+          color: '#fff',
+          letterSpacing: '-0.01em',
+        }}>
+          Travel
+        </span>
+        <span style={{
+          fontFamily: 'Georgia, serif',
+          fontSize: '1.6rem',
+          fontWeight: 400,
+          color: 'rgba(255,255,255,0.8)',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          fontSize: '0.8rem',
+        }}>
+          Itinerary
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function SignInPage() {
   return (
     <main style={{
@@ -43,6 +102,8 @@ export default function SignInPage() {
         textAlign: 'center',
         padding: '0 24px',
       }}>
+        <Logo />
+
         <h1 style={{
           fontFamily: 'Georgia, serif',
           fontSize: 'clamp(2.5rem, 6vw, 4.5rem)',
