@@ -4,16 +4,16 @@ import { getApiUrl } from '../lib/api';
 
 function FloatingCards() {
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 400, height: 210, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: 500, height: 220, margin: '0 auto' }}>
       {/* Left card */}
       <div style={{
         position: 'absolute',
         left: 0,
-        top: 28,
-        width: 148,
+        top: 30,
+        width: 155,
         background: '#fff',
         borderRadius: 18,
-        padding: '14px 14px 12px',
+        padding: '14px',
         transform: 'rotate(-13deg)',
         boxShadow: '0 10px 36px rgba(0,0,0,0.18)',
         fontFamily: 'system-ui, sans-serif',
@@ -32,7 +32,7 @@ function FloatingCards() {
         left: '50%',
         top: 0,
         transform: 'translateX(-50%) rotate(4deg)',
-        width: 148,
+        width: 158,
         background: '#0f1728',
         borderRadius: 18,
         padding: '14px',
@@ -54,8 +54,8 @@ function FloatingCards() {
       <div style={{
         position: 'absolute',
         right: 0,
-        top: 20,
-        width: 138,
+        top: 22,
+        width: 148,
         background: '#fff',
         borderRadius: 18,
         padding: '14px',
@@ -103,6 +103,7 @@ export default function SignInPage() {
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '22px 28px',
+        flexShrink: 0,
       }}>
         <span style={{
           fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -124,70 +125,71 @@ export default function SignInPage() {
         </a>
       </div>
 
-      {/* Hero heading */}
-      <div style={{ position: 'relative', textAlign: 'center', padding: '4px 20px 0' }}>
-        <h1 style={{
-          margin: 0,
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          fontWeight: 800,
-          fontSize: 'clamp(2rem, 8.5vw, 4rem)',
-          lineHeight: 1.08,
-          color: '#fff',
-          letterSpacing: '-0.03em',
-        }}>
-          Place for your<br />
-          trip bookings<br />
-          <span style={{ opacity: 0.45 }}>and documents</span>
-        </h1>
-      </div>
-
-      {/* Floating cards */}
+      {/* Centered content block */}
       <div style={{
-        position: 'relative',
         flex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '0 20px',
+        padding: '0 20px 16px',
         minHeight: 0,
       }}>
-        <FloatingCards />
-      </div>
+        <div style={{
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          gap: 28,
+          width: '100%',
+          maxWidth: 540,
+        }}>
+          {/* Hero heading */}
+          <h1 style={{
+            margin: 0,
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontWeight: 800,
+            fontSize: 'clamp(2rem, 8.5vw, 3.8rem)',
+            lineHeight: 1.08,
+            color: '#fff',
+            letterSpacing: '-0.03em',
+          }}>
+            Place for your<br />
+            trip bookings<br />
+            <span style={{ opacity: 0.45 }}>and documents</span>
+          </h1>
 
-      {/* Bottom */}
-      <div style={{
-        position: 'relative',
-        textAlign: 'center',
-        padding: '0 28px 44px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 18,
-      }}>
-        <p style={{
-          margin: 0,
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '0.9rem',
-          color: 'rgba(255,255,255,0.82)',
-          lineHeight: 1.65,
-        }}>
-          All your bookings, flights &amp; stays<br />
-          organized in one place.
-        </p>
-        <a href={getApiUrl('/auth/google')} style={{
-          display: 'inline-block',
-          padding: '14px 32px',
-          background: '#111827',
-          color: '#fff',
-          borderRadius: '9999px',
-          fontSize: '0.95rem',
-          fontWeight: 600,
-          textDecoration: 'none',
-          fontFamily: 'system-ui, sans-serif',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.28)',
-        }}>
-          Sign in with Google
-        </a>
+          {/* Floating cards */}
+          <FloatingCards />
+
+          {/* Subtitle */}
+          <p style={{
+            margin: 0,
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: '0.9rem',
+            color: 'rgba(255,255,255,0.82)',
+            lineHeight: 1.65,
+          }}>
+            All your bookings, flights &amp; stays<br />
+            organized in one place.
+          </p>
+
+          {/* CTA */}
+          <a href={getApiUrl('/auth/google')} style={{
+            display: 'inline-block',
+            padding: '14px 32px',
+            background: '#111827',
+            color: '#fff',
+            borderRadius: '9999px',
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            textDecoration: 'none',
+            fontFamily: 'system-ui, sans-serif',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.28)',
+          }}>
+            Sign in with Google
+          </a>
+        </div>
       </div>
     </main>
   );
