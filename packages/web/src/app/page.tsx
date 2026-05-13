@@ -2,34 +2,79 @@
 
 import { getApiUrl } from '../lib/api';
 
-function LogoIcon() {
+function FloatingCards() {
   return (
-    <svg width="38" height="38" viewBox="0 0 100 100" fill="none">
-      <path
-        d="M 50 92 C 20 78, 8 55, 18 34 C 28 13, 55 12, 68 28 C 81 44, 72 65, 55 68 C 38 71, 26 55, 36 42 C 46 29, 65 32, 68 46 C 71 60, 58 72, 46 66"
-        stroke="white"
-        strokeWidth="9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
+    <div style={{ position: 'relative', width: '100%', maxWidth: 400, height: 210, margin: '0 auto' }}>
+      {/* Left card */}
+      <div style={{
+        position: 'absolute',
+        left: 0,
+        top: 28,
+        width: 148,
+        background: '#fff',
+        borderRadius: 18,
+        padding: '14px 14px 12px',
+        transform: 'rotate(-13deg)',
+        boxShadow: '0 10px 36px rgba(0,0,0,0.18)',
+        fontFamily: 'system-ui, sans-serif',
+        zIndex: 1,
+      }}>
+        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#111', marginBottom: 5 }}>Tokyo Trip ✈️</div>
+        <div style={{ fontSize: '0.7rem', color: '#555', lineHeight: 1.55 }}>Flights, hotels &<br />bookings in one app</div>
+        <div style={{ marginTop: 10, background: '#111', color: '#fff', borderRadius: 20, padding: '5px 10px', fontSize: '0.65rem', fontWeight: 600, textAlign: 'center' }}>
+          + Add booking
+        </div>
+      </div>
 
-function HeroShape() {
-  return (
-    <svg viewBox="0 0 300 340" fill="none" style={{ width: '100%', maxWidth: 340, height: 'auto', display: 'block' }}>
-      <path
-        d="M 150 320 C 55 285, 18 210, 32 140 C 46 70, 115 38, 162 58 C 209 78, 222 135, 196 170 C 170 205, 118 200, 112 165 C 106 130, 148 108, 178 122 C 208 136, 214 178, 192 202 C 170 226, 128 222, 118 196"
-        stroke="white"
-        strokeWidth="20"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-        opacity="0.92"
-      />
-    </svg>
+      {/* Center card */}
+      <div style={{
+        position: 'absolute',
+        left: '50%',
+        top: 0,
+        transform: 'translateX(-50%) rotate(4deg)',
+        width: 148,
+        background: '#0f1728',
+        borderRadius: 18,
+        padding: '14px',
+        boxShadow: '0 14px 44px rgba(0,0,0,0.28)',
+        color: '#fff',
+        fontFamily: 'system-ui, sans-serif',
+        zIndex: 3,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', opacity: 0.65, marginBottom: 10 }}>
+          <span>TYO → NYC</span>
+          <span>NH006</span>
+        </div>
+        <div style={{ fontSize: '0.65rem', opacity: 0.55, marginBottom: 2 }}>Departure in</div>
+        <div style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1.1 }}>14<br />Days</div>
+        <div style={{ fontSize: '0.6rem', opacity: 0.55, marginTop: 6 }}>Fri, 27 Jun ✈️</div>
+      </div>
+
+      {/* Right card */}
+      <div style={{
+        position: 'absolute',
+        right: 0,
+        top: 20,
+        width: 138,
+        background: '#fff',
+        borderRadius: 18,
+        padding: '14px',
+        transform: 'rotate(11deg)',
+        boxShadow: '0 10px 36px rgba(0,0,0,0.18)',
+        fontFamily: 'system-ui, sans-serif',
+        zIndex: 2,
+      }}>
+        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#111', marginBottom: 6 }}>New York ↗</div>
+        <div style={{ fontSize: '0.65rem', color: '#888', marginBottom: 8 }}>5:25pm ✈️</div>
+        <div style={{ borderTop: '1px solid #eee', paddingTop: 8 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#111' }}>Tokyo ↙</div>
+          <div style={{ fontSize: '0.65rem', color: '#888', marginTop: 2 }}>8:45pm</div>
+        </div>
+        <div style={{ marginTop: 8, border: '1.5px solid #ddd', borderRadius: 20, padding: '4px 0', fontSize: '0.65rem', fontWeight: 600, textAlign: 'center', color: '#111' }}>
+          View details
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -38,18 +83,36 @@ export default function SignInPage() {
     <main style={{
       position: 'fixed',
       inset: 0,
-      background: 'linear-gradient(160deg, #38BDF8 0%, #0EA5E9 40%, #1D4ED8 100%)',
+      background: 'linear-gradient(180deg, #52AAEC 0%, #2D8EE3 55%, #1A72D4 100%)',
       display: 'flex',
       flexDirection: 'column',
+      overflow: 'hidden',
     }}>
+      {/* Cloud blobs */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', top: '-4%', left: '-8%', width: '55vw', height: '26vw', background: 'rgba(255,255,255,0.28)', borderRadius: '50%', filter: 'blur(48px)' }} />
+        <div style={{ position: 'absolute', top: '12%', right: '-6%', width: '40vw', height: '20vw', background: 'rgba(255,255,255,0.22)', borderRadius: '50%', filter: 'blur(40px)' }} />
+        <div style={{ position: 'absolute', bottom: '22%', left: '8%', width: '50vw', height: '22vw', background: 'rgba(255,255,255,0.18)', borderRadius: '50%', filter: 'blur(56px)' }} />
+        <div style={{ position: 'absolute', bottom: '5%', right: '5%', width: '35vw', height: '18vw', background: 'rgba(255,255,255,0.15)', borderRadius: '50%', filter: 'blur(44px)' }} />
+      </div>
+
       {/* Top nav */}
       <div style={{
+        position: 'relative',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '20px 28px',
+        padding: '22px 28px',
       }}>
-        <LogoIcon />
+        <span style={{
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontSize: '1.05rem',
+          fontWeight: 700,
+          color: '#fff',
+          letterSpacing: '-0.01em',
+        }}>
+          Travel Itinerary
+        </span>
         <a href={getApiUrl('/auth/google')} style={{
           color: 'rgba(255,255,255,0.9)',
           fontSize: '0.9rem',
@@ -61,48 +124,67 @@ export default function SignInPage() {
         </a>
       </div>
 
-      {/* Hero shape */}
+      {/* Hero heading */}
+      <div style={{ position: 'relative', textAlign: 'center', padding: '4px 20px 0' }}>
+        <h1 style={{
+          margin: 0,
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontWeight: 800,
+          fontSize: 'clamp(2rem, 8.5vw, 4rem)',
+          lineHeight: 1.08,
+          color: '#fff',
+          letterSpacing: '-0.03em',
+        }}>
+          Place for your<br />
+          trip bookings<br />
+          <span style={{ opacity: 0.45 }}>and documents</span>
+        </h1>
+      </div>
+
+      {/* Floating cards */}
       <div style={{
+        position: 'relative',
         flex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '0 32px',
+        padding: '0 20px',
+        minHeight: 0,
       }}>
-        <HeroShape />
+        <FloatingCards />
       </div>
 
-      {/* Bottom content */}
+      {/* Bottom */}
       <div style={{
-        padding: '0 28px 48px',
+        position: 'relative',
+        textAlign: 'center',
+        padding: '0 28px 44px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 24,
+        alignItems: 'center',
+        gap: 18,
       }}>
         <p style={{
           margin: 0,
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          fontSize: 'clamp(1.5rem, 5vw, 2.2rem)',
-          fontWeight: 800,
-          color: '#fff',
-          lineHeight: 1.2,
-          letterSpacing: '-0.02em',
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: '0.9rem',
+          color: 'rgba(255,255,255,0.82)',
+          lineHeight: 1.65,
         }}>
-          Organize all your<br />trip bookings<br />in one place.
+          All your bookings, flights &amp; stays<br />
+          organized in one place.
         </p>
-
         <a href={getApiUrl('/auth/google')} style={{
-          display: 'block',
-          textAlign: 'center',
-          padding: '16px 0',
-          background: '#fff',
-          color: '#1D4ED8',
+          display: 'inline-block',
+          padding: '14px 32px',
+          background: '#111827',
+          color: '#fff',
           borderRadius: '9999px',
-          fontSize: '1rem',
-          fontWeight: 700,
+          fontSize: '0.95rem',
+          fontWeight: 600,
           textDecoration: 'none',
           fontFamily: 'system-ui, sans-serif',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.28)',
         }}>
           Sign in with Google
         </a>
