@@ -60,7 +60,7 @@ export default function SignInPage() {
           color: 'rgba(255,255,255,0.85)',
           margin: '16px 0 40px',
         }}>
-          Every journey begins before you board.
+          Organize all your trip bookings in one place.
         </p>
 
         <a
