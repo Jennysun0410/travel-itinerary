@@ -47,12 +47,11 @@ function Logo() {
         </span>
         <span style={{
           fontFamily: 'Georgia, serif',
-          fontSize: '1.6rem',
+          fontSize: '0.8rem',
           fontWeight: 400,
           color: 'rgba(255,255,255,0.8)',
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          fontSize: '0.8rem',
         }}>
           Itinerary
         </span>
