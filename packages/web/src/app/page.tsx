@@ -2,61 +2,34 @@
 
 import { getApiUrl } from '../lib/api';
 
-function Logo() {
+function LogoIcon() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
-      {/* Icon */}
-      <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="logoGrad" x1="0" y1="0" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#22D3EE" />
-            <stop offset="100%" stopColor="#1E40AF" />
-          </linearGradient>
-        </defs>
-        {/* Circle background */}
-        <circle cx="28" cy="28" r="28" fill="url(#logoGrad)" />
-        {/* Route curve */}
-        <path
-          d="M14 36 C14 28, 22 20, 28 20 C34 20, 42 28, 42 20"
-          stroke="white"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.7"
-        />
-        {/* Waypoint dots */}
-        <circle cx="14" cy="36" r="4" fill="white" />
-        <circle cx="28" cy="20" r="4" fill="white" />
-        <circle cx="42" cy="20" r="4" fill="white" opacity="0.6" />
-        {/* Plane at end */}
-        <g transform="translate(38, 16) rotate(-35)">
-          <path d="M0 0 L6 3 L0 6 L1.5 3 Z" fill="white" />
-        </g>
-      </svg>
+    <svg width="38" height="38" viewBox="0 0 100 100" fill="none">
+      <path
+        d="M 50 92 C 20 78, 8 55, 18 34 C 28 13, 55 12, 68 28 C 81 44, 72 65, 55 68 C 38 71, 26 55, 36 42 C 46 29, 65 32, 68 46 C 71 60, 58 72, 46 66"
+        stroke="white"
+        strokeWidth="9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
 
-      {/* Wordmark */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 }}>
-        <span style={{
-          fontFamily: 'Georgia, serif',
-          fontSize: '1.6rem',
-          fontWeight: 700,
-          color: '#fff',
-          letterSpacing: '-0.01em',
-        }}>
-          Travel
-        </span>
-        <span style={{
-          fontFamily: 'Georgia, serif',
-          fontSize: '0.8rem',
-          fontWeight: 400,
-          color: 'rgba(255,255,255,0.8)',
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-        }}>
-          Itinerary
-        </span>
-      </div>
-    </div>
+function HeroShape() {
+  return (
+    <svg viewBox="0 0 300 340" fill="none" style={{ width: '100%', maxWidth: 340, height: 'auto', display: 'block' }}>
+      <path
+        d="M 150 320 C 55 285, 18 210, 32 140 C 46 70, 115 38, 162 58 C 209 78, 222 135, 196 170 C 170 205, 118 200, 112 165 C 106 130, 148 108, 178 122 C 208 136, 214 178, 192 202 C 170 226, 128 222, 118 196"
+        stroke="white"
+        strokeWidth="20"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        opacity="0.92"
+      />
+    </svg>
   );
 }
 
@@ -65,78 +38,72 @@ export default function SignInPage() {
     <main style={{
       position: 'fixed',
       inset: 0,
-      background: 'linear-gradient(135deg, #22D3EE 0%, #0EA5E9 40%, #1E40AF 100%)',
+      background: 'linear-gradient(160deg, #38BDF8 0%, #0EA5E9 40%, #1D4ED8 100%)',
       display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: 'column',
     }}>
-      {/* Dark overlay for text contrast */}
+      {/* Top nav */}
       <div style={{
-        position: 'absolute',
-        inset: 0,
-        background: 'rgba(0,0,0,0.35)',
-      }} />
-
-      {/* Top-right sign-in link */}
-      <div style={{ position: 'absolute', top: 24, right: 32 }}>
-        <a
-          href={getApiUrl('/auth/google')}
-          style={{
-            color: 'rgba(255,255,255,0.85)',
-            fontSize: '0.9rem',
-            textDecoration: 'none',
-            fontWeight: 500,
-          }}
-        >
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '20px 28px',
+      }}>
+        <LogoIcon />
+        <a href={getApiUrl('/auth/google')} style={{
+          color: 'rgba(255,255,255,0.9)',
+          fontSize: '0.9rem',
+          fontWeight: 500,
+          textDecoration: 'none',
+          fontFamily: 'system-ui, sans-serif',
+        }}>
           Sign in
         </a>
       </div>
 
-      {/* Hero content */}
+      {/* Hero shape */}
       <div style={{
-        position: 'relative',
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 32px',
+      }}>
+        <HeroShape />
+      </div>
+
+      {/* Bottom content */}
+      <div style={{
+        padding: '0 28px 48px',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        textAlign: 'center',
-        padding: '0 24px',
+        gap: 24,
       }}>
-        <Logo />
-
-        <h1 style={{
-          fontFamily: 'Georgia, serif',
-          fontSize: 'clamp(2.5rem, 6vw, 4.5rem)',
-          fontWeight: 700,
-          color: '#fff',
-          letterSpacing: '-0.02em',
-          margin: 0,
-        }}>
-          Travel Itinerary
-        </h1>
-
         <p style={{
-          fontStyle: 'italic',
-          fontSize: 'clamp(1rem, 2.5vw, 1.35rem)',
-          color: 'rgba(255,255,255,0.85)',
-          margin: '16px 0 40px',
+          margin: 0,
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontSize: 'clamp(1.5rem, 5vw, 2.2rem)',
+          fontWeight: 800,
+          color: '#fff',
+          lineHeight: 1.2,
+          letterSpacing: '-0.02em',
         }}>
-          Organize all your trip bookings in one place.
+          Organize all your<br />trip bookings<br />in one place.
         </p>
 
-        <a
-          href={getApiUrl('/auth/google')}
-          style={{
-            display: 'inline-block',
-            padding: '14px 36px',
-            background: '#fff',
-            color: '#1E40AF',
-            borderRadius: '9999px',
-            fontSize: '1rem',
-            fontWeight: 600,
-            textDecoration: 'none',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
-          }}
-        >
+        <a href={getApiUrl('/auth/google')} style={{
+          display: 'block',
+          textAlign: 'center',
+          padding: '16px 0',
+          background: '#fff',
+          color: '#1D4ED8',
+          borderRadius: '9999px',
+          fontSize: '1rem',
+          fontWeight: 700,
+          textDecoration: 'none',
+          fontFamily: 'system-ui, sans-serif',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+        }}>
           Sign in with Google
         </a>
       </div>
