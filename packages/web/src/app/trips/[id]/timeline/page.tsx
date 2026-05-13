@@ -8,9 +8,12 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { apiFetch } from '../../../../lib/api';
+import { TripPageShell } from '../../../../components/TripPageShell';
 import type { Order, TimelineSlot, TripDestination } from '@travel/shared';
 import { resolveTimezone } from '@travel/shared';
 import LocalDatetime from '../../../../components/LocalDatetime';
+
+const P = '#2563EB';
 
 interface Props { params: { id: string } }
 
@@ -21,7 +24,7 @@ function DraggableOrderCard({ order }: { order: Order }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `pool-${order.id}`, data: { type: 'pool', order } });
   const style = { transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : 1, cursor: 'grab' };
   return (
-    <div ref={setNodeRef} style={{ ...style, border: '1px solid #ddd', borderRadius: 6, padding: '8px 12px', background: '#fff', marginBottom: 6 }} {...listeners} {...attributes}>
+    <div ref={setNodeRef} style={{ ...style, border: '1px solid #E5E7EB', borderRadius: 10, padding: '8px 12px', background: '#fff', marginBottom: 6, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }} {...listeners} {...attributes}>
       <strong style={{ fontSize: 13 }}>{order.vendor}</strong>
       <span style={{ fontSize: 12, color: '#666', marginLeft: 6 }}>{order.type}</span>
       <p style={{ margin: '2px 0', fontSize: 11, color: '#999' }}>{order.bookingRef}</p>
@@ -34,7 +37,7 @@ function SortableSlotCard({ slot, destinations }: { slot: SlottedOrder; destinat
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
   const tz = resolveTimezone(slot.order.bookingDate ?? null, destinations);
   return (
-    <div ref={setNodeRef} style={{ ...style, border: '1px solid #b3d4ff', borderRadius: 6, padding: '8px 12px', background: '#eef4ff', marginBottom: 6, cursor: 'grab' }} {...listeners} {...attributes}>
+    <div ref={setNodeRef} style={{ ...style, border: '1px solid #BFDBFE', borderRadius: 10, padding: '8px 12px', background: '#EFF6FF', marginBottom: 6, cursor: 'grab' }} {...listeners} {...attributes}>
       <strong style={{ fontSize: 13 }}>{slot.order.vendor}</strong>
       <span style={{ fontSize: 12, color: '#555', marginLeft: 6 }}>{slot.order.type}</span>
       {slot.order.startDatetime && <p style={{ margin: '2px 0', fontSize: 11, color: '#555' }}><LocalDatetime utcIso={slot.order.startDatetime} timezone={tz} /></p>}
@@ -50,7 +53,7 @@ function DayColumn({ day, slots, tripId, destinations, onSlotMoved, onSlotRemove
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${day}`, data: { day } });
   return (
-    <div ref={setNodeRef} style={{ minWidth: 180, flex: '0 0 180px', border: `2px ${isOver ? 'solid #0070f3' : 'dashed #ddd'}`, borderRadius: 8, padding: 10, background: isOver ? '#f0f7ff' : '#fafafa' }}>
+    <div ref={setNodeRef} style={{ minWidth: 180, flex: '0 0 180px', border: `2px ${isOver ? `solid ${P}` : 'dashed #E5E7EB'}`, borderRadius: 10, padding: 10, background: isOver ? '#EFF6FF' : '#F9FAFB' }}>
       <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#333' }}>{day}</h4>
       <SortableContext items={slots.map(s => s.id)} strategy={verticalListSortingStrategy}>
         {slots.map(slot => (
@@ -186,11 +189,12 @@ export default function TimelinePage({ params }: Props) {
   const handleSlotMoved = () => { /* handled in drag end */ };
 
   return (
+    <TripPageShell tripId={tripId} contentStyle={{ padding: 0 }}>
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div style={{ display: 'flex', gap: 16, padding: 24, height: 'calc(100vh - 80px)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', gap: 16, padding: '16px 20px', height: 'calc(100vh - 96px)', overflow: 'hidden' }}>
         {/* Order pool */}
         <div style={{ width: 200, flexShrink: 0, overflowY: 'auto' }}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 14 }}>Unscheduled Orders</h3>
+          <h3 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Unscheduled</h3>
           {unscheduled.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>All orders are on the timeline.</p>}
           {unscheduled.map(order => <DraggableOrderCard key={order.id} order={order} />)}
         </div>
@@ -206,11 +210,12 @@ export default function TimelinePage({ params }: Props) {
 
       <DragOverlay>
         {activeOrder && (
-          <div style={{ border: '1px solid #0070f3', borderRadius: 6, padding: '8px 12px', background: '#e8f0fe', opacity: 0.9 }}>
+          <div style={{ border: `1px solid ${P}`, borderRadius: 10, padding: '8px 12px', background: '#EFF6FF', opacity: 0.9 }}>
             <strong style={{ fontSize: 13 }}>{activeOrder.vendor}</strong>
           </div>
         )}
       </DragOverlay>
     </DndContext>
+    </TripPageShell>
   );
 }

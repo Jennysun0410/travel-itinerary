@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../../lib/api';
+import { Navbar } from '../../../components/Navbar';
 import type { Trip } from '@travel/shared';
 
 const CITY_OPTIONS = [
@@ -21,15 +22,8 @@ const CITY_OPTIONS = [
   { label: '其他', value: '其他', timezone: '' },
 ];
 
-interface DestinationRow {
-  city: string;
-  startDate: string;
-  endDate: string;
-}
-
+interface DestinationRow { city: string; startDate: string; endDate: string }
 const emptyRow = (): DestinationRow => ({ city: '', startDate: '', endDate: '' });
-
-const inputStyle: React.CSSProperties = { padding: 8, borderRadius: 4, border: '1px solid #ccc', width: '100%', boxSizing: 'border-box' };
 
 export default function NewTripPage() {
   const router = useRouter();
@@ -37,16 +31,14 @@ export default function NewTripPage() {
   const [destinations, setDestinations] = useState<DestinationRow[]>([emptyRow()]);
   const [error, setError] = useState('');
 
-  const updateRow = (index: number, patch: Partial<DestinationRow>) => {
-    setDestinations(prev => prev.map((r, i) => i === index ? { ...r, ...patch } : r));
+  const inp: React.CSSProperties = {
+    padding: '9px 12px', borderRadius: 8, border: '1px solid #D1D5DB',
+    width: '100%', boxSizing: 'border-box', fontSize: '0.875rem',
+    fontFamily: 'system-ui, sans-serif', outline: 'none', color: '#111827',
   };
 
-  const addRow = () => setDestinations(prev => [...prev, emptyRow()]);
-
-  const removeRow = (index: number) => {
-    if (destinations.length === 1) return;
-    setDestinations(prev => prev.filter((_, i) => i !== index));
-  };
+  const updateRow = (i: number, patch: Partial<DestinationRow>) =>
+    setDestinations(prev => prev.map((r, j) => j === i ? { ...r, ...patch } : r));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,92 +53,101 @@ export default function NewTripPage() {
         method: 'POST',
         body: JSON.stringify({ name, destinations: payload }),
       });
-      router.push(`/trips/${trip.id}`);
+      router.push(`/trips/${trip.id}/orders`);
     } catch (err) {
       setError((err as Error).message);
     }
   };
 
   return (
-    <main style={{ padding: 24, maxWidth: 480, margin: '0 auto' }}>
-      <h1>新增行程</h1>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <input
-          placeholder="行程名稱"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          required
-          style={inputStyle}
-        />
+    <>
+      <Navbar />
+      <main style={{ maxWidth: 480, margin: '0 auto', padding: '28px 20px' }}>
+        <h1 style={{ margin: '0 0 24px', fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#111827' }}>
+          新增行程
+        </h1>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {destinations.map((row, i) => (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, border: '1px solid #e0e0e0', borderRadius: 8 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <select
-                  value={row.city}
-                  onChange={e => updateRow(i, { city: e.target.value })}
-                  required
-                  style={{ ...inputStyle, flex: 1 }}
-                >
-                  <option value="">選擇城市</option>
-                  {CITY_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                {destinations.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeRow(i)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: 20, lineHeight: 1, padding: '0 4px' }}
-                    aria-label="移除目的地"
+        {error && (
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', fontSize: '0.875rem', color: '#DC2626', marginBottom: 16 }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>行程名稱</label>
+            <input
+              placeholder="例：東京自由行"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+              style={inp}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>目的地</label>
+            {destinations.map((row, i) => (
+              <div key={i} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select
+                    value={row.city}
+                    onChange={e => updateRow(i, { city: e.target.value })}
+                    required
+                    style={{ ...inp, flex: 1 }}
                   >
-                    ×
-                  </button>
-                )}
+                    <option value="">選擇城市</option>
+                    {CITY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                  {destinations.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setDestinations(d => d.filter((_, j) => j !== i))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: 20, lineHeight: 1, padding: '0 4px', flexShrink: 0 }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <label style={{ flex: 1, fontSize: '0.78rem', color: '#6B7280' }}>
+                    開始日期
+                    <input type="date" value={row.startDate} onChange={e => updateRow(i, { startDate: e.target.value })} required style={{ ...inp, display: 'block', marginTop: 4 }} />
+                  </label>
+                  <label style={{ flex: 1, fontSize: '0.78rem', color: '#6B7280' }}>
+                    結束日期
+                    <input type="date" value={row.endDate} onChange={e => updateRow(i, { endDate: e.target.value })} required style={{ ...inp, display: 'block', marginTop: 4 }} />
+                  </label>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <label style={{ flex: 1, fontSize: 13 }}>
-                  開始日期
-                  <input
-                    type="date"
-                    value={row.startDate}
-                    onChange={e => updateRow(i, { startDate: e.target.value })}
-                    required
-                    style={{ ...inputStyle, display: 'block', marginTop: 4 }}
-                  />
-                </label>
-                <label style={{ flex: 1, fontSize: 13 }}>
-                  結束日期
-                  <input
-                    type="date"
-                    value={row.endDate}
-                    onChange={e => updateRow(i, { endDate: e.target.value })}
-                    required
-                    style={{ ...inputStyle, display: 'block', marginTop: 4 }}
-                  />
-                </label>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        <button
-          type="button"
-          onClick={addRow}
-          style={{ padding: '8px 16px', background: '#f5f5f5', border: '1px dashed #ccc', borderRadius: 6, cursor: 'pointer', color: '#555' }}
-        >
-          ＋ 新增目的地
-        </button>
+          <button
+            type="button"
+            onClick={() => setDestinations(d => [...d, emptyRow()])}
+            style={{
+              padding: '10px 16px', background: '#F9FAFB',
+              border: '1.5px dashed #D1D5DB', borderRadius: 10,
+              cursor: 'pointer', color: '#6B7280', fontSize: '0.875rem',
+            }}
+          >
+            ＋ 新增目的地
+          </button>
 
-        <button
-          type="submit"
-          style={{ padding: '10px 20px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-        >
-          建立行程
-        </button>
-      </form>
-    </main>
+          <button
+            type="submit"
+            style={{
+              padding: '12px 0', background: '#2563EB', color: '#fff',
+              border: 'none', borderRadius: '9999px',
+              fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
+            }}
+          >
+            建立行程
+          </button>
+        </form>
+      </main>
+    </>
   );
 }

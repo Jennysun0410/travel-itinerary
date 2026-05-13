@@ -2,13 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../../lib/api';
+import { Navbar } from '../../components/Navbar';
 import type { Order, Trip } from '@travel/shared';
+
+const P = '#2563EB';
+const TYPE_ICON: Record<string, string> = { flight: '✈️', accommodation: '🏨', activity: '🎫' };
 
 export default function InboxPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Order>>({});
+
+  const inp: React.CSSProperties = { padding: '8px 11px', borderRadius: 7, border: '1px solid #D1D5DB', fontSize: 13, fontFamily: 'system-ui, sans-serif' };
 
   useEffect(() => {
     apiFetch<Order[]>('/orders/unassigned').then(setOrders).catch(console.error);
@@ -27,38 +33,75 @@ export default function InboxPage() {
   };
 
   return (
-    <main style={{ padding: 24 }}>
-      <h2>Inbox — Unassigned Orders</h2>
-      {orders.length === 0 && <p>No unassigned orders.</p>}
-      {orders.map(order => (
-        <div key={order.id} style={{ border: order.flaggedForReview ? '2px solid orange' : '1px solid #ddd', borderRadius: 8, padding: 16, marginBottom: 12 }}>
-          {order.flaggedForReview && <span style={{ color: 'orange', fontWeight: 600 }}>⚠ Review required — some fields may be missing</span>}
-          {editingId === order.id ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <input placeholder="Vendor" value={editForm.vendor ?? order.vendor} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} style={{ padding: 6, borderRadius: 4, border: '1px solid #ccc' }} />
-              <input placeholder="Booking ref" value={editForm.bookingRef ?? order.bookingRef} onChange={e => setEditForm(f => ({ ...f, bookingRef: e.target.value }))} style={{ padding: 6, borderRadius: 4, border: '1px solid #ccc' }} />
-              <input placeholder="Price" type="number" value={editForm.price ?? order.price} onChange={e => setEditForm(f => ({ ...f, price: Number(e.target.value) }))} style={{ padding: 6, borderRadius: 4, border: '1px solid #ccc' }} />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => handleSaveEdit(order.id)} style={{ padding: '6px 14px', background: '#0070f3', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Save</button>
-                <button onClick={() => setEditingId(null)} style={{ padding: '6px 14px', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
+    <>
+      <Navbar />
+      <main style={{ maxWidth: 600, margin: '0 auto', padding: '24px 20px' }}>
+        <h1 style={{ margin: '0 0 20px', fontSize: '1.4rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
+          Inbox
+        </h1>
+
+        {orders.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 0', color: '#9CA3AF' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>📭</div>
+            <p style={{ margin: 0, fontSize: '0.875rem' }}>No unassigned orders.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {orders.map(order => (
+              <div key={order.id} style={{
+                background: '#fff',
+                border: order.flaggedForReview ? '1.5px solid #F59E0B' : '1px solid #E5E7EB',
+                borderRadius: 12, padding: '14px 18px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}>
+                {order.flaggedForReview && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12, color: '#92400E', fontWeight: 600 }}>
+                    <span>⚠</span> Review required — some fields may be missing
+                  </div>
+                )}
+                {editingId === order.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input placeholder="Vendor" value={editForm.vendor ?? order.vendor} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} style={inp} />
+                    <input placeholder="Booking ref" value={editForm.bookingRef ?? order.bookingRef} onChange={e => setEditForm(f => ({ ...f, bookingRef: e.target.value }))} style={inp} />
+                    <input placeholder="Price" type="number" value={editForm.price ?? order.price} onChange={e => setEditForm(f => ({ ...f, price: Number(e.target.value) }))} style={inp} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => handleSaveEdit(order.id)} style={{ padding: '7px 18px', background: P, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Save</button>
+                      <button onClick={() => setEditingId(null)} style={{ padding: '7px 14px', border: '1px solid #E5E7EB', borderRadius: 7, cursor: 'pointer', fontSize: 13, background: '#fff' }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
+                        <span>{TYPE_ICON[order.type] ?? '📄'}</span>
+                        <strong style={{ fontSize: '0.95rem', color: '#111827' }}>{order.vendor || 'Unknown vendor'}</strong>
+                        <span style={{ fontSize: 11, background: '#F3F4F6', color: '#6B7280', padding: '2px 8px', borderRadius: 10 }}>{order.type}</span>
+                      </div>
+                      <p style={{ margin: '0 0 2px', color: '#9CA3AF', fontSize: 12 }}>
+                        {order.bookingRef ? `${order.bookingRef} · ` : ''}{order.price} {order.currency}
+                      </p>
+                      <p style={{ margin: 0, fontSize: 12, color: '#CBD5E1' }}>{order.startDatetime?.slice(0, 10)} – {order.endDatetime?.slice(0, 10)}</p>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, alignItems: 'flex-end' }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => { setEditingId(order.id); setEditForm({}); }} style={{ padding: '5px 12px', border: '1px solid #E5E7EB', borderRadius: 7, cursor: 'pointer', fontSize: 12, background: '#fff' }}>Edit</button>
+                      </div>
+                      <select
+                        onChange={e => e.target.value && handleAssign(order.id, e.target.value)}
+                        defaultValue=""
+                        style={{ ...inp, fontSize: 12, padding: '5px 10px', cursor: 'pointer' }}
+                      >
+                        <option value="">Assign to trip…</option>
+                        {trips.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ) : (
-            <>
-              <strong>{order.vendor || 'Unknown vendor'}</strong> — {order.type}
-              <p style={{ margin: '4px 0', color: '#666' }}>Ref: {order.bookingRef || '—'} | {order.price} {order.currency}</p>
-              <p style={{ margin: '4px 0', fontSize: 13 }}>{order.startDatetime} – {order.endDatetime}</p>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                <button onClick={() => { setEditingId(order.id); setEditForm({}); }} style={{ padding: '4px 10px', border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer' }}>Edit</button>
-                <select onChange={e => e.target.value && handleAssign(order.id, e.target.value)} defaultValue="">
-                  <option value="">Assign to trip…</option>
-                  {trips.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </div>
-            </>
-          )}
-        </div>
-      ))}
-    </main>
+            ))}
+          </div>
+        )}
+      </main>
+    </>
   );
 }
