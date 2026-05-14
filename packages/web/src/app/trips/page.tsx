@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../lib/api';
-import { AppLayout } from '../../components/AppLayout';
+import { AppLayout, useSidebar } from '../../components/AppLayout';
 import { useI18n } from '../../lib/i18n';
 import type { Trip } from '@travel/shared';
 
@@ -112,6 +112,7 @@ function TripCard({ trip }: { trip: Trip }) {
 
 export default function TripsPage() {
   const { t } = useI18n();
+  const { openSidebar } = useSidebar();
   const router = useRouter();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [query, setQuery] = useState('');
@@ -148,6 +149,21 @@ export default function TripsPage() {
           gap: 12, padding: '8px 0 20px', borderBottom: `1px solid ${S.border}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <button
+              type="button"
+              onClick={openSidebar}
+              aria-label={t('openMenu')}
+              style={{
+                width: 36, height: 36, borderRadius: 9,
+                border: `1px solid ${S.border}`, background: S.surface,
+                color: S.text, cursor: 'pointer', display: 'grid', placeItems: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
+              </svg>
+            </button>
             <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
               {t('brand')}
             </span>

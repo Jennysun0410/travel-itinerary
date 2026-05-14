@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { apiFetch } from '../lib/api';
-import { AppLayout } from './AppLayout';
+import { AppLayout, useSidebar } from './AppLayout';
 import { useI18n } from '../lib/i18n';
 import type { Trip } from '@travel/shared';
 
@@ -26,6 +26,7 @@ export function TripPageShell({ tripId, children, contentStyle }: Props) {
   const [tripName, setTripName] = useState('');
   const pathname = usePathname();
   const { t } = useI18n();
+  const { openSidebar } = useSidebar();
 
   useEffect(() => {
     apiFetch<Trip>(`/trips/${tripId}`).then(trip => setTripName(trip.name)).catch(() => {});
@@ -48,6 +49,20 @@ export function TripPageShell({ tripId, children, contentStyle }: Props) {
       }}>
         {/* Breadcrumb row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 20px', height: 50 }}>
+          <button
+            type="button"
+            onClick={openSidebar}
+            aria-label={t('openMenu')}
+            style={{
+              width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+              border: `1px solid ${S.border}`, background: 'transparent',
+              color: S.muted, cursor: 'pointer', display: 'grid', placeItems: 'center',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
+            </svg>
+          </button>
           <Link href="/trips" style={{ fontSize: '0.82rem', color: S.muted, textDecoration: 'none', fontFamily: 'inherit' }}>
             {t('backToTrips')}
           </Link>
