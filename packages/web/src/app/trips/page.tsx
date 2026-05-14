@@ -146,7 +146,7 @@ export default function TripsPage() {
         {/* Top bar */}
         <header style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 12, padding: '8px 0 20px', borderBottom: `1px solid ${S.border}`,
+          gap: 12, padding: '8px 0 20px', borderBottom: '1px solid rgba(255,255,255,0.22)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
             <button
@@ -155,8 +155,8 @@ export default function TripsPage() {
               aria-label={t('openMenu')}
               style={{
                 width: 36, height: 36, borderRadius: 9,
-                border: `1px solid ${S.border}`, background: S.surface,
-                color: S.text, cursor: 'pointer', display: 'grid', placeItems: 'center',
+                border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.18)',
+                color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center',
                 flexShrink: 0,
               }}
             >
@@ -164,7 +164,7 @@ export default function TripsPage() {
                 <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
               </svg>
             </button>
-            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', whiteSpace: 'nowrap', color: '#fff' }}>
               {t('brand')}
             </span>
           </div>
@@ -174,8 +174,8 @@ export default function TripsPage() {
               title={t('help')}
               style={{
                 width: 40, height: 40, borderRadius: 999,
-                border: `1px solid ${S.border}`, background: S.surface,
-                color: S.text, cursor: 'pointer', display: 'grid', placeItems: 'center',
+                border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.18)',
+                color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center',
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -189,7 +189,7 @@ export default function TripsPage() {
               style={{
                 appearance: 'none', border: 'none', borderRadius: 10,
                 padding: '10px 18px', fontSize: 14, fontWeight: 600,
-                background: S.text, color: S.surface, cursor: 'pointer',
+                background: '#fff', color: S.text, cursor: 'pointer',
                 whiteSpace: 'nowrap', fontFamily: 'inherit',
               }}
             >
@@ -199,10 +199,10 @@ export default function TripsPage() {
         </header>
 
         {/* Page title */}
-        <h1 style={{ margin: '24px 0 8px', fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em' }}>
+        <h1 style={{ margin: '24px 0 8px', fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em', color: '#fff' }}>
           {t('pageTitle')}
         </h1>
-        <p style={{ margin: '0 0 24px', fontSize: 14, color: S.muted, lineHeight: 1.5 }}>
+        <p style={{ margin: '0 0 24px', fontSize: 14, color: 'rgba(255,255,255,0.72)', lineHeight: 1.5 }}>
           {t('pageSub')}
         </p>
 
@@ -215,8 +215,8 @@ export default function TripsPage() {
             onChange={e => setQuery(e.target.value)}
             style={{
               flex: 1, minWidth: 200, padding: '10px 14px',
-              border: `1px solid ${S.border}`, borderRadius: 10,
-              font: 'inherit', fontSize: 14, background: S.surface, color: S.text,
+              border: '1px solid rgba(255,255,255,0.3)', borderRadius: 10,
+              font: 'inherit', fontSize: 14, background: 'rgba(255,255,255,0.92)', color: S.text,
               outline: 'none',
             }}
           />
@@ -227,9 +227,9 @@ export default function TripsPage() {
               onClick={() => setFilter(f.key)}
               style={{
                 padding: '6px 12px', borderRadius: 999, fontSize: 13, fontWeight: 500,
-                border: `1px solid ${filter === f.key ? S.text : S.border}`,
-                background: filter === f.key ? S.text : S.surface,
-                color: filter === f.key ? S.surface : S.muted,
+                border: filter === f.key ? '1px solid transparent' : '1px solid rgba(255,255,255,0.4)',
+                background: filter === f.key ? '#fff' : 'rgba(255,255,255,0.15)',
+                color: filter === f.key ? S.text : 'rgba(255,255,255,0.92)',
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
@@ -246,10 +246,11 @@ export default function TripsPage() {
         ) : (
           <div style={{
             marginTop: 32, padding: '32px 24px', textAlign: 'center',
-            border: `1px dashed ${S.border}`, borderRadius: 14, background: S.surface,
+            border: '1px solid rgba(255,255,255,0.28)', borderRadius: 14,
+            background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(12px)',
           }}>
-            <h2 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 600 }}>{t('emptyTitle')}</h2>
-            <p style={{ margin: '0 0 20px', fontSize: 14, color: S.muted, lineHeight: 1.55, maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>
+            <h2 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 600, color: '#fff' }}>{t('emptyTitle')}</h2>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: 'rgba(255,255,255,0.72)', lineHeight: 1.55, maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>
               {t('emptyDesc')}
             </p>
             <button

@@ -47,12 +47,12 @@ export default function InboxPage() {
 
   return (
     <AppLayout>
-      <div style={{ maxWidth: 720, width: '100%', margin: '0 auto', padding: '0 20px 48px', flex: 1 }}>
+      <div style={{ maxWidth: 720, width: '100%', margin: '0 auto', padding: '16px 20px 48px', flex: 1 }}>
 
         {/* Top bar */}
         <header style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 12, padding: '8px 0 20px', borderBottom: `1px solid ${S.border}`,
+          gap: 12, padding: '8px 0 20px', borderBottom: '1px solid rgba(255,255,255,0.22)',
           marginBottom: 24,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
@@ -62,8 +62,8 @@ export default function InboxPage() {
               aria-label={t('openMenu')}
               style={{
                 width: 36, height: 36, borderRadius: 9,
-                border: `1px solid ${S.border}`, background: S.surface,
-                color: S.text, cursor: 'pointer', display: 'grid', placeItems: 'center',
+                border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.18)',
+                color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center',
                 flexShrink: 0,
               }}
             >
@@ -71,18 +71,18 @@ export default function InboxPage() {
                 <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
               </svg>
             </button>
-            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', whiteSpace: 'nowrap', color: '#fff' }}>
               {t('brand')}
             </span>
           </div>
         </header>
 
-        <h1 style={{ margin: '0 0 20px', fontSize: '1.4rem', fontWeight: 800, color: S.text, letterSpacing: '-0.02em' }}>
+        <h1 style={{ margin: '0 0 20px', fontSize: '1.4rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
           {t('navInbox')}
         </h1>
 
         {orders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px 0', color: S.muted }}>
+          <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(255,255,255,0.72)' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: 10 }}>📭</div>
             <p style={{ margin: 0, fontSize: '0.875rem' }}>No unassigned orders.</p>
           </div>

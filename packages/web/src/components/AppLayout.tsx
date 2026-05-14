@@ -38,7 +38,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <style>{`
-        .app-root { display: flex; min-height: 100vh; align-items: stretch; }
+        .app-root { display: flex; min-height: 100vh; align-items: stretch; background: linear-gradient(160deg, #52AAEC 0%, #2D8EE3 55%, #1A72D4 100%); }
         .app-sidebar { display: flex; flex-shrink: 0; }
         .app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
         .app-backdrop { display: none; }

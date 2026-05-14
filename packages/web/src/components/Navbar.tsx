@@ -23,7 +23,7 @@ export function Navbar({ children }: NavbarProps) {
       <div style={{ maxWidth: 720, width: '100%', margin: '0 auto', padding: '0 20px 48px', flex: 1 }}>
         <header style={{
           display: 'flex', alignItems: 'center', gap: 10,
-          padding: '8px 0 20px', borderBottom: `1px solid ${S.border}`,
+          padding: '8px 0 20px', borderBottom: '1px solid rgba(255,255,255,0.22)',
           marginBottom: 24,
         }}>
           <button
@@ -32,8 +32,8 @@ export function Navbar({ children }: NavbarProps) {
             aria-label={t('openMenu')}
             style={{
               width: 36, height: 36, borderRadius: 9,
-              border: `1px solid ${S.border}`, background: S.surface,
-              color: S.text, cursor: 'pointer', display: 'grid', placeItems: 'center',
+              border: '1px solid rgba(255,255,255,0.35)', background: 'rgba(255,255,255,0.18)',
+              color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center',
               flexShrink: 0,
             }}
           >
@@ -41,7 +41,7 @@ export function Navbar({ children }: NavbarProps) {
               <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
             </svg>
           </button>
-          <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em' }}>
+          <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', color: '#fff' }}>
             {t('brand')}
           </span>
         </header>
