@@ -8,7 +8,7 @@ export const translations = {
   'zh-Hant': {
     brand: '旅行行程',
     navTrips: '我的行程',
-    navInbox: '收件匣',
+    navInbox: '待整理行程',
     settings: '設定',
     labelDisplayName: '稱呼',
     labelConnectedEmail: '連結信箱',
