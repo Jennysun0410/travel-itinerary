@@ -634,6 +634,8 @@ export default function OrdersPage({ params }: Props) {
   const [filter, setFilter] = useState('');
   const [gmailConnected, setGmailConnected] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Order>>({});
 
   const loadOrders = (type = filter) => {
     const qs = type ? `?type=${type}` : '';
@@ -646,6 +648,12 @@ export default function OrdersPage({ params }: Props) {
       .then(conns => setGmailConnected(conns.some(c => c.provider === 'gmail')))
       .catch(console.error);
   }, [params.id]);
+
+  const handleSaveEdit = async (orderId: string) => {
+    const updated = await apiFetch<Order>(`/orders/${orderId}`, { method: 'PATCH', body: JSON.stringify(editForm) });
+    setOrders(o => o.map(x => x.id === orderId ? updated : x));
+    setEditingId(null);
+  };
 
   const closeModal = () => { setShowAddModal(false); loadOrders(); };
 
@@ -689,32 +697,52 @@ export default function OrdersPage({ params }: Props) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {orders.map(order => (
-            <div key={order.id} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: '14px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                    <span style={{ fontSize: '1rem' }}>{TYPE_ICON[order.type] ?? '📄'}</span>
-                    <strong style={{ fontSize: '0.95rem', color: '#111827' }}>{order.vendor}</strong>
-                    <span style={{ fontSize: 11, background: '#F3F4F6', color: '#6B7280', padding: '2px 8px', borderRadius: 10 }}>{TYPE_LABEL[order.type] ?? order.type}</span>
-                    {order.flaggedForReview && (
-                      <span style={{ fontSize: 11, background: '#FFFBEB', color: '#92400E', padding: '2px 8px', borderRadius: 10 }}>待確認</span>
-                    )}
+          {orders.map(order => {
+            const inp: React.CSSProperties = { padding: '7px 10px', borderRadius: 7, border: '1px solid #D1D5DB', fontSize: 13, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' };
+            return (
+              <div key={order.id} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: '14px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                {editingId === order.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input placeholder="供應商" defaultValue={order.vendor} onChange={e => setEditForm(f => ({ ...f, vendor: e.target.value }))} style={{ ...inp, flex: 2 }} />
+                      <input placeholder="訂單編號" defaultValue={order.bookingRef ?? ''} onChange={e => setEditForm(f => ({ ...f, bookingRef: e.target.value }))} style={{ ...inp, flex: 2 }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input type="number" placeholder="價格" defaultValue={order.price} onChange={e => setEditForm(f => ({ ...f, price: Number(e.target.value) }))} style={{ ...inp, flex: 2 }} />
+                      <input placeholder="幣別" defaultValue={order.currency} onChange={e => setEditForm(f => ({ ...f, currency: e.target.value }))} style={{ ...inp, flex: 1 }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => handleSaveEdit(order.id)} style={{ padding: '7px 18px', background: P, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>儲存</button>
+                      <button onClick={() => setEditingId(null)} style={{ padding: '7px 14px', border: '1px solid #E5E7EB', borderRadius: 7, cursor: 'pointer', fontSize: 13, background: '#fff' }}>取消</button>
+                    </div>
                   </div>
-                  <p style={{ margin: 0, color: '#9CA3AF', fontSize: '0.8rem' }}>
-                    {order.bookingRef ? `${order.bookingRef} · ` : ''}{order.startDatetime?.slice(0, 10)} – {order.endDatetime?.slice(0, 10)}
-                  </p>
-                  <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#CBD5E1' }}>Added by {order.createdByName}</p>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#374151' }}>{order.price.toLocaleString()} {order.currency}</span>
-                  <button onClick={() => setShowAddModal(true)} style={{ padding: '4px 12px', border: '1px solid #E5E7EB', borderRadius: 7, cursor: 'pointer', fontSize: 12, background: '#fff', color: '#374151' }}>
-                    Edit
-                  </button>
-                </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                        <span style={{ fontSize: '1rem' }}>{TYPE_ICON[order.type] ?? '📄'}</span>
+                        <strong style={{ fontSize: '0.95rem', color: '#111827' }}>{order.vendor}</strong>
+                        <span style={{ fontSize: 11, background: '#F3F4F6', color: '#6B7280', padding: '2px 8px', borderRadius: 10 }}>{TYPE_LABEL[order.type] ?? order.type}</span>
+                        {order.flaggedForReview && (
+                          <span style={{ fontSize: 11, background: '#FFFBEB', color: '#92400E', padding: '2px 8px', borderRadius: 10 }}>待確認</span>
+                        )}
+                      </div>
+                      <p style={{ margin: 0, color: '#9CA3AF', fontSize: '0.8rem' }}>
+                        {order.bookingRef ? `${order.bookingRef} · ` : ''}{order.startDatetime?.slice(0, 10)} – {order.endDatetime?.slice(0, 10)}
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#CBD5E1' }}>Added by {order.createdByName}</p>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#374151' }}>{order.price.toLocaleString()} {order.currency}</span>
+                      <button onClick={() => { setEditingId(order.id); setEditForm({}); }} style={{ padding: '4px 12px', border: '1px solid #E5E7EB', borderRadius: 7, cursor: 'pointer', fontSize: 12, background: '#fff', color: '#374151' }}>
+                        編輯
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </TripPageShell>
