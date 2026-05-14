@@ -1,157 +1,255 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../lib/api';
-import { Navbar } from '../../components/Navbar';
+import { AppLayout } from '../../components/AppLayout';
+import { useI18n } from '../../lib/i18n';
 import type { Trip } from '@travel/shared';
 
-const steps = [
-  { icon: '✈️', title: '建立旅行', desc: '點右上角「+ New Trip」，輸入旅行名稱、目的地與日期，建立一個旅行資料夾。' },
-  { icon: '📧', title: '匯入訂單', desc: '到「Settings → Email」連結你的 Gmail 或 Outlook，系統會自動掃描並解析機票、住宿、門票等訂購 email。' },
-  { icon: '📥', title: '分配訂單', desc: '到「Inbox」查看自動解析的訂單，指定要歸入哪趟旅行，也可以手動編輯內容。' },
-  { icon: '🗓️', title: '安排行程軸', desc: '進入旅行後點「Timeline」，把訂單拖進對應的日期排序，一眼看清整趟行程。' },
-  { icon: '👥', title: '共享旅行', desc: '進入旅行後點「Members」，輸入旅伴 email 邀請他們加入，大家可以共同查看與編輯。' },
-];
+const S = {
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  border: '#e4e4e7',
+  text: '#18181b',
+  muted: '#71717a',
+  subtle: '#a1a1aa',
+  inverse: '#fafafa',
+} as const;
 
-const TYPE_ICON: Record<string, string> = { flight: '✈️', accommodation: '🏨', activity: '🎫' };
+type Filter = 'all' | 'upcoming' | 'past';
+
+function isUpcoming(trip: Trip) {
+  if (!trip.endDate) return false;
+  return new Date(trip.endDate) >= new Date();
+}
+
+function isPast(trip: Trip) {
+  if (!trip.endDate) return true;
+  return new Date(trip.endDate) < new Date();
+}
+
+function formatDateRange(start?: string, end?: string) {
+  if (!start && !end) return '';
+  const fmt = (d: string) => {
+    const dt = new Date(d);
+    return `${dt.getMonth() + 1}/${String(dt.getDate()).padStart(2, '0')}`;
+  };
+  const year = end ? new Date(end).getFullYear() : start ? new Date(start).getFullYear() : '';
+  return `${start ? fmt(start) : '?'} — ${end ? fmt(end) : '?'} · ${year}`;
+}
+
+function TripIcon() {
+  return (
+    <div style={{
+      flexShrink: 0, width: 44, height: 44, borderRadius: 12,
+      background: S.inverse, border: `1px solid ${S.border}`,
+      display: 'grid', placeItems: 'center', color: S.text,
+    }}>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M10 18h4M12 3v2M6.5 8.5L4 11l8 1 8-1-2.5-2.5M8.5 14L7 21l5-2 5 2-1.5-7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
 
 function TripCard({ trip }: { trip: Trip }) {
-  const start = trip.startDate ? new Date(trip.startDate).toLocaleDateString('en', { month: 'short', day: 'numeric' }) : '';
-  const end = trip.endDate ? new Date(trip.endDate).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const { t } = useI18n();
+  const upcoming = isUpcoming(trip);
 
   return (
-    <Link href={`/trips/${trip.id}/orders`} style={{ textDecoration: 'none' }}>
+    <Link href={`/trips/${trip.id}/orders`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
       <div style={{
-        background: '#fff',
+        padding: '18px 18px 16px',
+        border: upcoming ? `1px solid ${S.text}` : `1px solid ${S.border}`,
+        boxShadow: upcoming ? `0 0 0 1px ${S.text}` : 'none',
         borderRadius: 14,
-        padding: '18px 20px',
-        border: '1px solid #E5E7EB',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+        background: S.surface,
         cursor: 'pointer',
-        transition: 'box-shadow 0.15s',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 12,
+        transition: 'border-color 0.15s, box-shadow 0.15s',
       }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: '1.1rem' }}>{TYPE_ICON.flight}</span>
-            <span style={{ fontWeight: 700, fontSize: '1rem', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {trip.name}
-            </span>
+        {/* Top row */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 14, minWidth: 0 }}>
+            <TripIcon />
+            <div style={{ minWidth: 0 }}>
+              <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 600, letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {trip.name}
+              </p>
+              {trip.destination && (
+                <p style={{ margin: 0, fontSize: 13, color: S.muted }}>{trip.destination}</p>
+              )}
+            </div>
           </div>
-          {trip.destination && (
-            <p style={{ margin: 0, fontSize: '0.82rem', color: '#6B7280' }}>{trip.destination}</p>
+          {upcoming && (
+            <span style={{
+              flexShrink: 0, fontSize: 11, fontWeight: 600,
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              padding: '5px 10px', borderRadius: 999,
+              background: S.text, color: S.surface,
+            }}>
+              {t('badgeSoon')}
+            </span>
           )}
         </div>
-        {(start || end) && (
-          <span style={{ fontSize: '0.78rem', color: '#9CA3AF', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            {start}{start && end ? ' – ' : ''}{end}
+
+        {/* Meta row */}
+        <div style={{
+          marginTop: 14, paddingTop: 14,
+          borderTop: `1px solid ${S.border}`,
+          display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
+          gap: '8px 20px', fontSize: 13, color: S.muted,
+        }}>
+          <span style={{ fontWeight: 500, color: S.text }}>
+            {formatDateRange(trip.startDate, trip.endDate)}
           </span>
-        )}
+        </div>
       </div>
     </Link>
   );
 }
 
 export default function TripsPage() {
+  const { t } = useI18n();
+  const router = useRouter();
   const [trips, setTrips] = useState<Trip[]>([]);
-  const [showHelp, setShowHelp] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
 
   useEffect(() => {
     apiFetch<Trip[]>('/trips').then(setTrips).catch(console.error);
   }, []);
 
+  const filtered = useMemo(() => {
+    let list = trips;
+    if (filter === 'upcoming') list = list.filter(isUpcoming);
+    if (filter === 'past') list = list.filter(isPast);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      list = list.filter(t => t.name.toLowerCase().includes(q) || (t.destination ?? '').toLowerCase().includes(q));
+    }
+    return list;
+  }, [trips, filter, query]);
+
+  const filters: Array<{ key: Filter; label: string }> = [
+    { key: 'all', label: t('filterAll') },
+    { key: 'upcoming', label: t('filterUpcoming') },
+    { key: 'past', label: t('filterPast') },
+  ];
+
   return (
-    <>
-      <Navbar right={
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            onClick={() => setShowHelp(true)}
-            title="操作說明"
-            style={{
-              width: 32, height: 32, borderRadius: '50%',
-              border: '1.5px solid #BFDBFE',
-              background: '#EFF6FF', color: '#2563EB',
-              fontWeight: 700, fontSize: 14, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
-            ?
-          </button>
-          <Link href="/trips/new" style={{
-            padding: '7px 18px',
-            background: '#2563EB',
-            color: '#fff',
-            borderRadius: '9999px',
-            textDecoration: 'none',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-          }}>
-            + New Trip
-          </Link>
-        </div>
-      } />
+    <AppLayout>
+      <div style={{ maxWidth: 720, width: '100%', margin: '0 auto', padding: '16px 20px 48px', flex: 1 }}>
 
-      <main style={{ maxWidth: 600, margin: '0 auto', padding: '24px 20px' }}>
-        <h1 style={{ margin: '0 0 20px', fontSize: '1.5rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
-          My Trips
+        {/* Top bar */}
+        <header style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 12, padding: '8px 0 20px', borderBottom: `1px solid ${S.border}`,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+              {t('brand')}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              type="button"
+              title={t('help')}
+              style={{
+                width: 40, height: 40, borderRadius: 999,
+                border: `1px solid ${S.border}`, background: S.surface,
+                color: S.text, cursor: 'pointer', display: 'grid', placeItems: 'center',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9 9a3 3 0 1 1 4 2.83V13M12 17h.01" strokeLinecap="round" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/trips/new')}
+              style={{
+                appearance: 'none', border: 'none', borderRadius: 10,
+                padding: '10px 18px', fontSize: 14, fontWeight: 600,
+                background: S.text, color: S.surface, cursor: 'pointer',
+                whiteSpace: 'nowrap', fontFamily: 'inherit',
+              }}
+            >
+              {t('newTrip')}
+            </button>
+          </div>
+        </header>
+
+        {/* Page title */}
+        <h1 style={{ margin: '24px 0 8px', fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em' }}>
+          {t('pageTitle')}
         </h1>
+        <p style={{ margin: '0 0 24px', fontSize: 14, color: S.muted, lineHeight: 1.5 }}>
+          {t('pageSub')}
+        </p>
 
-        {trips.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: '48px 24px',
-            background: '#fff', borderRadius: 16,
-            border: '1px solid #E5E7EB',
-          }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>✈️</div>
-            <p style={{ margin: '0 0 6px', fontWeight: 600, color: '#374151' }}>No trips yet</p>
-            <p style={{ margin: '0 0 20px', fontSize: '0.875rem', color: '#9CA3AF' }}>Create your first trip to get started</p>
-            <Link href="/trips/new" style={{
-              display: 'inline-block', padding: '10px 24px',
-              background: '#2563EB', color: '#fff',
-              borderRadius: '9999px', textDecoration: 'none',
-              fontSize: '0.9rem', fontWeight: 600,
-            }}>
-              + New Trip
-            </Link>
+        {/* Toolbar */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <input
+            type="search"
+            placeholder={t('searchPlaceholder')}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            style={{
+              flex: 1, minWidth: 200, padding: '10px 14px',
+              border: `1px solid ${S.border}`, borderRadius: 10,
+              font: 'inherit', fontSize: 14, background: S.surface, color: S.text,
+              outline: 'none',
+            }}
+          />
+          {filters.map(f => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              style={{
+                padding: '6px 12px', borderRadius: 999, fontSize: 13, fontWeight: 500,
+                border: `1px solid ${filter === f.key ? S.text : S.border}`,
+                background: filter === f.key ? S.text : S.surface,
+                color: filter === f.key ? S.surface : S.muted,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Trip list */}
+        {filtered.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {filtered.map(trip => <TripCard key={trip.id} trip={trip} />)}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {trips.map(trip => <TripCard key={trip.id} trip={trip} />)}
+          <div style={{
+            marginTop: 32, padding: '32px 24px', textAlign: 'center',
+            border: `1px dashed ${S.border}`, borderRadius: 14, background: S.surface,
+          }}>
+            <h2 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 600 }}>{t('emptyTitle')}</h2>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: S.muted, lineHeight: 1.55, maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>
+              {t('emptyDesc')}
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push('/trips/new')}
+              style={{
+                appearance: 'none', border: 'none', borderRadius: 10,
+                padding: '10px 20px', fontSize: 14, fontWeight: 600,
+                background: S.text, color: S.surface, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {t('emptyCta')}
+            </button>
           </div>
         )}
-      </main>
-
-      {showHelp && (
-        <div
-          onClick={() => setShowHelp(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 16, padding: '28px 24px', maxWidth: 460, width: '100%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>如何使用 Travel Itinerary</h2>
-              <button onClick={() => setShowHelp(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#9CA3AF', lineHeight: 1 }}>×</button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {steps.map((step, i) => (
-                <div key={i} style={{ display: 'flex', gap: 14 }}>
-                  <div style={{ fontSize: 26, flexShrink: 0 }}>{step.icon}</div>
-                  <div>
-                    <div style={{ fontWeight: 600, marginBottom: 3, fontSize: '0.9rem' }}>{i + 1}. {step.title}</div>
-                    <div style={{ color: '#6B7280', fontSize: '0.825rem', lineHeight: 1.65 }}>{step.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+      </div>
+    </AppLayout>
   );
 }

@@ -60,9 +60,8 @@ export default function NewTripPage() {
   };
 
   return (
-    <>
-      <Navbar />
-      <main style={{ maxWidth: 480, margin: '0 auto', padding: '28px 20px' }}>
+    <Navbar>
+      <div style={{ maxWidth: 480 }}>
         <h1 style={{ margin: '0 0 24px', fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#111827' }}>
           新增行程
         </h1>
@@ -147,7 +146,7 @@ export default function NewTripPage() {
             建立行程
           </button>
         </form>
-      </main>
-    </>
+      </div>
+    </Navbar>
   );
 }

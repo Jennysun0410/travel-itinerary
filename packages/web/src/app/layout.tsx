@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Providers } from '../components/Providers';
 
 export const metadata: Metadata = {
   title: 'Travel Itinerary',
@@ -7,8 +8,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif', background: '#F7FAFF', color: '#111827' }}>{children}</body>
+    <html lang="zh-Hant">
+      <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif', background: '#f4f4f5', color: '#18181b' }}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

@@ -33,9 +33,8 @@ export default function InboxPage() {
   };
 
   return (
-    <>
-      <Navbar />
-      <main style={{ maxWidth: 600, margin: '0 auto', padding: '24px 20px' }}>
+    <Navbar>
+      <div style={{ maxWidth: 600 }}>
         <h1 style={{ margin: '0 0 20px', fontSize: '1.4rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
           Inbox
         </h1>
@@ -101,7 +100,7 @@ export default function InboxPage() {
             ))}
           </div>
         )}
-      </main>
-    </>
+      </div>
+    </Navbar>
   );
 }

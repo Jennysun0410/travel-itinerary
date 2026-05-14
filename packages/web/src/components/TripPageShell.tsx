@@ -4,7 +4,17 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { apiFetch } from '../lib/api';
+import { AppLayout } from './AppLayout';
+import { useI18n } from '../lib/i18n';
 import type { Trip } from '@travel/shared';
+
+const S = {
+  bg: '#f4f4f5',
+  surface: '#ffffff',
+  border: '#e4e4e7',
+  text: '#18181b',
+  muted: '#71717a',
+} as const;
 
 interface Props {
   tripId: string;
@@ -15,59 +25,36 @@ interface Props {
 export function TripPageShell({ tripId, children, contentStyle }: Props) {
   const [tripName, setTripName] = useState('');
   const pathname = usePathname();
+  const { t } = useI18n();
 
   useEffect(() => {
-    apiFetch<Trip>(`/trips/${tripId}`).then(t => setTripName(t.name)).catch(() => {});
+    apiFetch<Trip>(`/trips/${tripId}`).then(trip => setTripName(trip.name)).catch(() => {});
   }, [tripId]);
 
   const tabs = [
-    { label: 'Orders', href: `/trips/${tripId}/orders` },
-    { label: 'Timeline', href: `/trips/${tripId}/timeline` },
-    { label: 'Members', href: `/trips/${tripId}/members` },
+    { key: 'orders', label: t('orders'), href: `/trips/${tripId}/orders` },
+    { key: 'timeline', label: t('timeline'), href: `/trips/${tripId}/timeline` },
+    { key: 'members', label: t('members'), href: `/trips/${tripId}/members` },
   ];
 
   return (
-    <>
+    <AppLayout>
+      {/* Sub-header: back + trip name + tabs */}
       <header style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
+        position: 'sticky', top: 0, zIndex: 10,
         background: 'rgba(255,255,255,0.94)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid #E5E7EB',
+        backdropFilter: 'blur(10px)',
+        borderBottom: `1px solid ${S.border}`,
       }}>
-        {/* Top bar */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '0 20px',
-          height: 52,
-        }}>
-          <Link href="/trips" style={{
-            color: '#6B7280',
-            textDecoration: 'none',
-            fontSize: '0.82rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 3,
-            fontFamily: 'system-ui, sans-serif',
-          }}>
-            ← My Trips
+        {/* Breadcrumb row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 20px', height: 50 }}>
+          <Link href="/trips" style={{ fontSize: '0.82rem', color: S.muted, textDecoration: 'none', fontFamily: 'inherit' }}>
+            {t('backToTrips')}
           </Link>
           {tripName && (
             <>
               <span style={{ color: '#D1D5DB', fontSize: '0.9rem' }}>/</span>
-              <span style={{
-                color: '#111827',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                maxWidth: 200,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontFamily: 'system-ui, sans-serif',
-              }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: S.text, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {tripName}
               </span>
             </>
@@ -75,18 +62,17 @@ export function TripPageShell({ tripId, children, contentStyle }: Props) {
         </div>
 
         {/* Tab bar */}
-        <div style={{ display: 'flex', padding: '0 20px', gap: 2, borderTop: '1px solid #F3F4F6' }}>
+        <div style={{ display: 'flex', padding: '0 20px', gap: 2, borderTop: `1px solid ${S.bg}` }}>
           {tabs.map(tab => {
-            const active = pathname === tab.href || pathname?.startsWith(tab.href + '/');
+            const active = pathname === tab.href;
             return (
-              <Link key={tab.href} href={tab.href} style={{
-                padding: '10px 14px',
-                fontSize: '0.875rem',
+              <Link key={tab.key} href={tab.href} style={{
+                padding: '10px 14px', fontSize: '0.875rem',
                 fontWeight: active ? 600 : 400,
-                color: active ? '#2563EB' : '#6B7280',
+                color: active ? S.text : S.muted,
                 textDecoration: 'none',
-                borderBottom: active ? '2px solid #2563EB' : '2px solid transparent',
-                fontFamily: 'system-ui, sans-serif',
+                borderBottom: active ? `2px solid ${S.text}` : '2px solid transparent',
+                fontFamily: 'inherit',
               }}>
                 {tab.label}
               </Link>
@@ -98,6 +84,6 @@ export function TripPageShell({ tripId, children, contentStyle }: Props) {
       <div style={{ padding: 20, ...contentStyle }}>
         {children}
       </div>
-    </>
+    </AppLayout>
   );
 }
