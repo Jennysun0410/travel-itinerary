@@ -1,6 +1,8 @@
 'use client';
 
-import { getApiUrl } from '../lib/api';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getApiUrl, getToken } from '../lib/api';
 
 function FloatingCards() {
   return (
@@ -79,6 +81,14 @@ function FloatingCards() {
 }
 
 export default function SignInPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (getToken()) {
+      router.replace('/trips');
+    }
+  }, [router]);
+
   return (
     <main style={{
       position: 'fixed',

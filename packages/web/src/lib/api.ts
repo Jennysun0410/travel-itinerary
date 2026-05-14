@@ -28,6 +28,10 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     },
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      clearToken();
+      window.location.href = '/';
+    }
     const err = await res.json().catch(() => ({ message: res.statusText }));
     throw new Error(err.message ?? 'API error');
   }
