@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import pdfParse from 'pdf-parse';
 import pool from '../db/client';
 import { encrypt, decrypt } from './encryption';
 import { enqueueEmailForParsing, parseEmail, ParsedOrder } from './parser';
@@ -88,7 +89,7 @@ export async function scanGmailByDateRange(userId: string, from: string, to: str
 
   const gmail = google.gmail({ version: 'v1', auth });
   const afterDate = from.replace(/-/g, '/');
-  const beforeDate = to.replace(/-/g, '/');
+  const beforeDate = new Date(new Date(to).getTime() + 86400000).toISOString().slice(0, 10).replace(/-/g, '/');
   const q = `(from:(agoda.com OR booking.com OR airbnb.com OR klook.com OR trip.com OR evaair.com OR china-airlines.com OR flyscoot.com OR airasia.com OR tigerairtw.com OR flypeach.com) OR subject:(confirmation OR 確認 OR 預訂 OR 訂單 OR itinerary OR e-ticket OR booking)) after:${afterDate} before:${beforeDate}`;
 
   const { data } = await gmail.users.messages.list({ userId: 'me', q, maxResults: 50 });
@@ -131,7 +132,7 @@ export async function scanGmailForPreview(userId: string, from: string, to: stri
 
   const gmail = google.gmail({ version: 'v1', auth });
   const afterDate = from.replace(/-/g, '/');
-  const beforeDate = to.replace(/-/g, '/');
+  const beforeDate = new Date(new Date(to).getTime() + 86400000).toISOString().slice(0, 10).replace(/-/g, '/');
   const q = `(from:(agoda.com OR booking.com OR airbnb.com OR klook.com OR trip.com OR evaair.com OR china-airlines.com OR flyscoot.com OR airasia.com OR tigerairtw.com OR flypeach.com) OR subject:(confirmation OR 確認 OR 預訂 OR 訂單 OR itinerary OR e-ticket OR booking)) after:${afterDate} before:${beforeDate}`;
 
   const { data } = await gmail.users.messages.list({ userId: 'me', q, maxResults: 50 });
@@ -174,22 +175,57 @@ export async function handleGmailPushNotification(userId: string): Promise<void>
 
   for (const msg of data.messages ?? []) {
     const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
-    const raw = extractEmailText(full.data);
+    const raw = await extractEmailText(full.data);
     await enqueueEmailForParsing(userId, msg.id!, raw);
   }
 }
 
-function extractEmailText(msg: { payload?: { body?: { data?: string | null } | null; parts?: Array<{ mimeType?: string | null; body?: { data?: string | null } | null }> | null } | null }): string {
+type GmailPart = {
+  mimeType?: string | null;
+  body?: { data?: string | null } | null;
+  parts?: GmailPart[] | null;
+};
+
+type GmailMsg = { payload?: (GmailPart & { parts?: GmailPart[] | null }) | null };
+
+function collectParts(part: GmailPart): GmailPart[] {
+  const result: GmailPart[] = [part];
+  for (const child of part.parts ?? []) {
+    result.push(...collectParts(child));
+  }
+  return result;
+}
+
+async function extractEmailText(msg: GmailMsg): Promise<string> {
   const payload = msg.payload;
   if (!payload) return '';
 
   if (payload.body?.data) {
     return Buffer.from(payload.body.data, 'base64').toString('utf8');
   }
-  for (const part of payload.parts ?? []) {
+
+  const parts = collectParts(payload as GmailPart);
+
+  let textBody = '';
+  for (const part of parts) {
     if ((part.mimeType === 'text/plain' || part.mimeType === 'text/html') && part.body?.data) {
-      return Buffer.from(part.body.data, 'base64').toString('utf8');
+      textBody = Buffer.from(part.body.data, 'base64').toString('utf8');
+      break;
     }
   }
-  return '';
+
+  const pdfTexts: string[] = [];
+  for (const part of parts) {
+    if (part.mimeType === 'application/pdf' && part.body?.data) {
+      try {
+        const buf = Buffer.from(part.body.data, 'base64');
+        const parsed = await pdfParse(buf);
+        if (parsed.text) pdfTexts.push(parsed.text);
+      } catch {
+        // silently skip unreadable PDF
+      }
+    }
+  }
+
+  return [textBody, ...pdfTexts].filter(Boolean).join('\n\n');
 }
