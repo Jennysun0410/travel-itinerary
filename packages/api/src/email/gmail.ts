@@ -135,13 +135,17 @@ export async function scanGmailForPreview(userId: string, from: string, to: stri
   const beforeDate = new Date(new Date(to).getTime() + 86400000).toISOString().slice(0, 10).replace(/-/g, '/');
   const q = `(from:(agoda.com OR booking.com OR airbnb.com OR klook.com OR trip.com OR evaair.com OR china-airlines.com OR flyscoot.com OR airasia.com OR tigerairtw.com OR flypeach.com) OR subject:(confirmation OR 確認 OR 預訂 OR 訂單 OR itinerary OR e-ticket OR booking)) after:${afterDate} before:${beforeDate}`;
 
+  console.log('[preview] query:', q);
   const { data } = await gmail.users.messages.list({ userId: 'me', q, maxResults: 50 });
+  console.log('[preview] messages found:', data.messages?.length ?? 0);
 
   const results: ParsedOrder[] = [];
   for (const msg of data.messages ?? []) {
     const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
     const raw = await extractEmailText(full.data);
+    console.log('[preview] msg', msg.id, 'text length:', raw.length);
     const order = parseEmail(msg.id!, raw, tripDateRange);
+    console.log('[preview] parsed:', order ? 'ok' : 'null');
     if (order) results.push(order);
   }
 
