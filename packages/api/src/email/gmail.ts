@@ -104,7 +104,7 @@ export async function scanGmailByDateRange(userId: string, from: string, to: str
       continue;
     }
     const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
-    const raw = extractEmailText(full.data);
+    const raw = await extractEmailText(full.data);
     await enqueueEmailForParsing(userId, msg.id!, raw, tripDateRange);
     imported++;
   }
@@ -140,7 +140,7 @@ export async function scanGmailForPreview(userId: string, from: string, to: stri
   const results: ParsedOrder[] = [];
   for (const msg of data.messages ?? []) {
     const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
-    const raw = extractEmailText(full.data);
+    const raw = await extractEmailText(full.data);
     const order = parseEmail(msg.id!, raw, tripDateRange);
     if (order) results.push(order);
   }
