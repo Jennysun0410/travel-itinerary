@@ -209,6 +209,7 @@ async function extractEmailText(msg: GmailMsg): Promise<string> {
   }
 
   const parts = collectParts(payload as GmailPart);
+  console.log('[extract] parts mimeTypes:', parts.map(p => `${p.mimeType}(data=${!!p.body?.data})`).join(', '));
 
   let textBody = '';
   for (const part of parts) {
@@ -224,9 +225,10 @@ async function extractEmailText(msg: GmailMsg): Promise<string> {
       try {
         const buf = Buffer.from(part.body.data, 'base64');
         const parsed = await pdfParse(buf);
+        console.log('[extract] pdf parsed, text length:', parsed.text?.length ?? 0);
         if (parsed.text) pdfTexts.push(parsed.text);
-      } catch {
-        // silently skip unreadable PDF
+      } catch (err) {
+        console.log('[extract] pdf parse error:', err instanceof Error ? err.message : err);
       }
     }
   }
