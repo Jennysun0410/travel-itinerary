@@ -104,7 +104,7 @@ export async function scanGmailByDateRange(userId: string, from: string, to: str
       continue;
     }
     const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
-    const raw = await extractEmailText(full.data);
+    const raw = await extractEmailText(full.data, gmail, msg.id!);
     await enqueueEmailForParsing(userId, msg.id!, raw, tripDateRange);
     imported++;
   }
@@ -142,7 +142,7 @@ export async function scanGmailForPreview(userId: string, from: string, to: stri
   const results: ParsedOrder[] = [];
   for (const msg of data.messages ?? []) {
     const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
-    const raw = await extractEmailText(full.data);
+    const raw = await extractEmailText(full.data, gmail, msg.id!);
     console.log('[preview] msg', msg.id, 'text length:', raw.length);
     const order = parseEmail(msg.id!, raw, tripDateRange);
     console.log('[preview] parsed:', order ? 'ok' : 'null');
@@ -179,18 +179,20 @@ export async function handleGmailPushNotification(userId: string): Promise<void>
 
   for (const msg of data.messages ?? []) {
     const full = await gmail.users.messages.get({ userId: 'me', id: msg.id!, format: 'full' });
-    const raw = await extractEmailText(full.data);
+    const raw = await extractEmailText(full.data, gmail, msg.id!);
     await enqueueEmailForParsing(userId, msg.id!, raw);
   }
 }
 
 type GmailPart = {
   mimeType?: string | null;
-  body?: { data?: string | null } | null;
+  body?: { data?: string | null; attachmentId?: string | null } | null;
   parts?: GmailPart[] | null;
 };
 
 type GmailMsg = { payload?: (GmailPart & { parts?: GmailPart[] | null }) | null };
+
+type GmailClient = ReturnType<typeof google.gmail>;
 
 function collectParts(part: GmailPart): GmailPart[] {
   const result: GmailPart[] = [part];
@@ -200,7 +202,7 @@ function collectParts(part: GmailPart): GmailPart[] {
   return result;
 }
 
-async function extractEmailText(msg: GmailMsg): Promise<string> {
+async function extractEmailText(msg: GmailMsg, gmail?: GmailClient, messageId?: string): Promise<string> {
   const payload = msg.payload;
   if (!payload) return '';
 
@@ -209,7 +211,7 @@ async function extractEmailText(msg: GmailMsg): Promise<string> {
   }
 
   const parts = collectParts(payload as GmailPart);
-  console.log('[extract] parts mimeTypes:', parts.map(p => `${p.mimeType}(data=${!!p.body?.data})`).join(', '));
+  console.log('[extract] parts mimeTypes:', parts.map(p => `${p.mimeType}(data=${!!p.body?.data},attachmentId=${!!p.body?.attachmentId})`).join(', '));
 
   let textBody = '';
   for (const part of parts) {
@@ -221,14 +223,32 @@ async function extractEmailText(msg: GmailMsg): Promise<string> {
 
   const pdfTexts: string[] = [];
   for (const part of parts) {
-    if (part.mimeType === 'application/pdf' && part.body?.data) {
-      try {
-        const buf = Buffer.from(part.body.data, 'base64');
-        const parsed = await pdfParse(buf);
-        console.log('[extract] pdf parsed, text length:', parsed.text?.length ?? 0);
-        if (parsed.text) pdfTexts.push(parsed.text);
-      } catch (err) {
-        console.log('[extract] pdf parse error:', err instanceof Error ? err.message : err);
+    if (part.mimeType === 'application/pdf') {
+      let pdfData = part.body?.data ?? null;
+
+      if (!pdfData && part.body?.attachmentId && gmail && messageId) {
+        try {
+          const att = await gmail.users.messages.attachments.get({
+            userId: 'me',
+            messageId,
+            id: part.body.attachmentId,
+          });
+          pdfData = att.data.data ?? null;
+          console.log('[extract] fetched attachment, data length:', pdfData?.length ?? 0);
+        } catch (err) {
+          console.log('[extract] attachment fetch error:', err instanceof Error ? err.message : err);
+        }
+      }
+
+      if (pdfData) {
+        try {
+          const buf = Buffer.from(pdfData, 'base64');
+          const parsed = await pdfParse(buf);
+          console.log('[extract] pdf parsed, text length:', parsed.text?.length ?? 0);
+          if (parsed.text) pdfTexts.push(parsed.text);
+        } catch (err) {
+          console.log('[extract] pdf parse error:', err instanceof Error ? err.message : err);
+        }
       }
     }
   }
